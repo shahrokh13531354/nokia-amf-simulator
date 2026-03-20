@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nokia CMM AMF CLI Simulator — CMM24.3</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --bg:         #0a0e14;
+    --bg2:        #0d1117;
+    --bg3:        #141b24;
+    --panel:      #111820;
+    --border:     #1e2d40;
+    --nokia-blue: #005AFF;
+    --nokia-b2:   #0040cc;
+    --cyan:       #00d4ff;
+    --green:      #00e676;
+    --yellow:     #ffd740;
+    --red:        #ff5252;
+    --orange:     #ff9100;
+    --dim:        #4a6080;
+    --muted:      #6e8ca8;
+    --text:       #c8d8e8;
+    --bright:     #e8f4ff;
+    --prompt-clr: #00d4ff;
+    --glow:       0 0 12px rgba(0,212,255,0.25);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', 'Share Tech Mono', monospace;
+    font-size: 13px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    background: linear-gradient(90deg, #001833 0%, #001040 50%, #001833 100%);
+    border-bottom: 1px solid var(--nokia-blue);
+    padding: 6px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    box-shadow: 0 0 20px rgba(0,90,255,0.3);
+  }
+  .topbar-left { display: flex; align-items: center; gap: 16px; }
+  .nokia-logo {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--nokia-blue);
+    letter-spacing: 3px;
+    text-shadow: 0 0 10px rgba(0,90,255,0.8);
+  }
+  .topbar-title { color: var(--muted); font-size: 11px; letter-spacing: 1px; }
+  .topbar-status { display: flex; gap: 20px; font-size: 11px; }
+  .status-item { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .dot.green  { background: var(--green);  box-shadow: 0 0 6px var(--green); }
+  .dot.blue   { background: var(--cyan);   box-shadow: 0 0 6px var(--cyan); }
+  .dot.yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+  .status-label { color: var(--muted); }
+  .status-val   { color: var(--bright); }
+
+  /* ── LAYOUT ── */
+  .workspace {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 210px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .sidebar-section { border-bottom: 1px solid var(--border); }
+  .sidebar-hdr {
+    padding: 8px 12px;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--nokia-blue);
+    background: rgba(0,90,255,0.06);
+    text-transform: uppercase;
+  }
+  .sidebar-item {
+    padding: 7px 12px 7px 16px;
+    font-size: 11px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-left: 2px solid transparent;
+  }
+  .sidebar-item:hover { color: var(--cyan); background: rgba(0,212,255,0.05); border-left-color: var(--cyan); }
+  .sidebar-item.active { color: var(--cyan); background: rgba(0,212,255,0.08); border-left-color: var(--cyan); }
+  .sidebar-item .ico { font-size: 10px; opacity: 0.7; }
+  .badge {
+    margin-left: auto;
+    background: rgba(255,82,82,0.2);
+    color: var(--red);
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    border: 1px solid rgba(255,82,82,0.3);
+  }
+  .badge.ok {
+    background: rgba(0,230,118,0.12);
+    color: var(--green);
+    border-color: rgba(0,230,118,0.3);
+  }
+
+  /* ── MAIN TERMINAL ── */
+  .terminal-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .term-tabs {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .tab {
+    padding: 7px 16px;
+    font-size: 11px;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+  }
+  .tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+  .tab:hover  { color: var(--text); }
+
+  .term-output {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+    background: var(--bg);
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .term-output::-webkit-scrollbar { width: 4px; }
+  .term-output::-webkit-scrollbar-track { background: transparent; }
+  .term-output::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .line { line-height: 1.7; white-space: pre-wrap; word-break: break-all; }
+  .line.cmd    { color: var(--cyan); }
+  .line.info   { color: var(--text); }
+  .line.ok     { color: var(--green); }
+  .line.warn   { color: var(--yellow); }
+  .line.err    { color: var(--red); }
+  .line.dim    { color: var(--dim); }
+  .line.hdr    { color: var(--nokia-blue); font-weight: 700; }
+  .line.orange { color: var(--orange); }
+  .line.bright { color: var(--bright); font-weight: 500; }
+  .line.table  { color: var(--text); font-family: 'Share Tech Mono', monospace; font-size: 12px; }
+  .line.prompt { color: var(--muted); }
+
+  /* Table styling */
+  .tbl-wrap { overflow-x: auto; margin: 4px 0; }
+  table.sim-tbl {
+    border-collapse: collapse;
+    font-size: 12px;
+    min-width: 100%;
+  }
+  table.sim-tbl th {
+    background: rgba(0,90,255,0.15);
+    color: var(--cyan);
+    padding: 4px 12px;
+    text-align: left;
+    border: 1px solid var(--border);
+    font-weight: 500;
+    letter-spacing: 0.5px;
+  }
+  table.sim-tbl td {
+    padding: 3px 12px;
+    border: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: top;
+  }
+  table.sim-tbl tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+  table.sim-tbl td.ok  { color: var(--green); }
+  table.sim-tbl td.err { color: var(--red); }
+  table.sim-tbl td.warn{ color: var(--yellow); }
+  table.sim-tbl td.dim { color: var(--dim); }
+  table.sim-tbl td.blue{ color: var(--cyan); }
+
+  /* ── INPUT ROW ── */
+  .input-row {
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .prompt-str { color: var(--prompt-clr); white-space: nowrap; font-size: 13px; }
+  .term-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--bright);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    caret-color: var(--cyan);
+  }
+  .term-input::placeholder { color: var(--dim); }
+
+  /* ── RIGHT PANEL ── */
+  .right-panel {
+    width: 240px;
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .rp-section { border-bottom: 1px solid var(--border); padding: 12px; }
+  .rp-hdr { font-size: 9px; letter-spacing: 2px; color: var(--nokia-blue); text-transform: uppercase; margin-bottom: 8px; }
+  .kv-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px; gap: 8px; }
+  .kv-key { color: var(--muted); font-size: 10px; flex-shrink: 0; }
+  .kv-val { color: var(--bright); font-size: 10px; text-align: right; }
+  .kv-val.ok   { color: var(--green); }
+  .kv-val.warn { color: var(--yellow); }
+  .kv-val.err  { color: var(--red); }
+
+  /* Quick ref */
+  .qr-cmd { 
+    font-size: 10px; 
+    color: var(--muted); 
+    padding: 3px 6px; 
+    margin: 2px 0;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.1s;
+    border: 1px solid transparent;
+  }
+  .qr-cmd:hover { 
+    background: rgba(0,212,255,0.08); 
+    color: var(--cyan); 
+    border-color: rgba(0,212,255,0.2);
+  }
+  .qr-cmd span { color: var(--dim); }
+
+  /* Alarm list */
+  .alarm-item {
+    font-size: 10px;
+    padding: 4px 6px;
+    margin: 2px 0;
+    border-radius: 3px;
+    border-left: 3px solid;
+    background: rgba(255,255,255,0.02);
+  }
+  .alarm-item.crit  { border-color: var(--red);    color: var(--red); }
+  .alarm-item.major { border-color: var(--orange);  color: var(--orange); }
+  .alarm-item.minor { border-color: var(--yellow);  color: var(--yellow); }
+  .alarm-id { font-size: 9px; opacity: 0.6; }
+
+  .hint-bar {
+    background: rgba(0,90,255,0.08);
+    border-top: 1px solid var(--border);
+    padding: 5px 16px;
+    font-size: 10px;
+    color: var(--dim);
+    flex-shrink: 0;
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .hint-bar span { color: var(--muted); }
+
+  .blink { animation: blink 1s step-end infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .section-div { 
+    height: 1px; 
+    background: linear-gradient(90deg, transparent, var(--border), transparent); 
+    margin: 6px 0; 
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="nokia-logo">NOKIA</div>
+    <div class="topbar-title">Cloud Mobility Manager · CMM24.3 · AMF CLI Simulator</div>
+  </div>
+  <div class="topbar-status">
+    <div class="status-item"><div class="dot green"></div><span class="status-label">NECC-0</span><span class="status-val">Active</span></div>
+    <div class="status-item"><div class="dot blue"></div><span class="status-label">NECC-1</span><span class="status-val">Standby</span></div>
+    <div class="status-item"><div class="dot yellow"></div><span class="status-label">Alarms</span><span class="status-val" id="alarm-count">2</span></div>
+    <div class="status-item"><div class="dot green"></div><span class="status-label">UEs</span><span class="status-val">1,247</span></div>
+  </div>
+</div>
+
+<!-- WORKSPACE -->
+<div class="workspace">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-hdr">AMF Functions</div>
+      <div class="sidebar-item active" onclick="insertCmd('cmm amfGParms show --amfGparmName amfRelativeCapacity')"><span class="ico">⚙</span> AMF Global Params</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfCapacityGParms show --amfGparmName amfRelativeCapacity')"><span class="ico">📊</span> AMF Capacity</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfMultiLink list --amfIntfType N2')"><span class="ico">🔗</span> Link Status N2</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfMultiLink list --amfIntfType N11')"><span class="ico">🔗</span> Link Status N11</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfLinkAdmin show --amfLinkType N2')"><span class="ico">🔧</span> Link Admin State</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-hdr">UE & Subscribers</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm ueContext list')"><span class="ico">📱</span> UE Context List</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm ueContext show --imsi 302720100000001')"><span class="ico">📱</span> UE Context Show</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm ueContextCount list')"><span class="ico">🔢</span> UE Count</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-hdr">Network Config</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm plmn list')"><span class="ico">🌐</span> PLMN List</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm tai list')"><span class="ico">📍</span> TAI List</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm allowedSnssai list')"><span class="ico">🍕</span> SNSSAI / Slices</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm rmtEndPtCfg list')"><span class="ico">🔌</span> Remote Endpoints</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm localEndPtCfg list')"><span class="ico">🏠</span> Local Endpoints</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfGParms show --amfGparmName smsOverNas')"><span class="ico">💬</span> SMS over NAS</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-hdr">Diagnostics</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm alarmActive list')"><span class="ico">🔔</span> Active Alarms <span class="badge">2</span></div>
+      <div class="sidebar-item" onclick="insertCmd('cmm alarmHistory list')"><span class="ico">📜</span> Alarm History</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm nbiPing list --pingTarget 172.16.59.11 --pingSourceIp 172.16.46.201')"><span class="ico">📡</span> NBI Ping gNB</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfHttp2Ping list --amfClientIntf N8 --amfRmtEndIp 172.16.59.71 --amfRmtEndIpPort 8080')"><span class="ico">🏓</span> HTTP2 Ping UDM</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm clusterMgmt test.ping --target \'*\'')"><span class="ico">🖧</span> Cluster Ping</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-hdr">Performance</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm gParms show --gParmName enablePrometheusGW')"><span class="ico">📈</span> Prometheus Status</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm counter show 31001')"><span class="ico">🔢</span> PM Counter</div>
+    </div>
+  </div>
+
+  <!-- TERMINAL -->
+  <div class="terminal-wrap">
+    <div class="term-tabs">
+      <div class="tab active">● Terminal</div>
+      <div class="tab">  necc0@AMMS</div>
+    </div>
+    <div class="term-output" id="output"></div>
+    <div class="input-row">
+      <span class="prompt-str" id="prompt-str">[cmm@necc0 ~]$</span>
+      <input class="term-input" id="term-input" type="text" autocomplete="off" spellcheck="false" placeholder="Type a command or press Tab for suggestions..." />
+    </div>
+    <div class="hint-bar">
+      <span>Tab: autocomplete</span>
+      <span>↑↓: history</span>
+      <span>Ctrl+L: clear</span>
+      <span><b style="color:var(--cyan)">help</b> — show all commands</span>
+      <span><b style="color:var(--cyan)">cmm -h</b> — CMM help</span>
+      <span><b style="color:var(--cyan)">tutorial</b> — guided walkthrough</span>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="rp-section">
+      <div class="rp-hdr">AMF Node Identity</div>
+      <div class="kv-row"><span class="kv-key">PLMN</span><span class="kv-val">302-720</span></div>
+      <div class="kv-row"><span class="kv-key">AMF Region</span><span class="kv-val">01</span></div>
+      <div class="kv-row"><span class="kv-key">AMF Set</span><span class="kv-val">01</span></div>
+      <div class="kv-row"><span class="kv-key">AMF Pointer</span><span class="kv-val">0x01</span></div>
+      <div class="kv-row"><span class="kv-key">Rel. Capacity</span><span class="kv-val ok">128</span></div>
+      <div class="kv-row"><span class="kv-key">NRF Status</span><span class="kv-val ok">Registered</span></div>
+    </div>
+    <div class="rp-section">
+      <div class="rp-hdr">Interface Health</div>
+      <div class="kv-row"><span class="kv-key">N2 (gNB)</span><span class="kv-val ok">9 UP</span></div>
+      <div class="kv-row"><span class="kv-key">N8 (UDM)</span><span class="kv-val ok">UP</span></div>
+      <div class="kv-row"><span class="kv-key">N11 (SMF)</span><span class="kv-val ok">UP</span></div>
+      <div class="kv-row"><span class="kv-key">N12 (AUSF)</span><span class="kv-val ok">UP</span></div>
+      <div class="kv-row"><span class="kv-key">N15 (PCF)</span><span class="kv-val ok">UP</span></div>
+      <div class="kv-row"><span class="kv-key">Nnrf</span><span class="kv-val ok">UP</span></div>
+      <div class="kv-row"><span class="kv-key">N26 (MME)</span><span class="kv-val warn">DEGRADED</span></div>
+    </div>
+    <div class="rp-section">
+      <div class="rp-hdr">Active Alarms</div>
+      <div class="alarm-item major">
+        <div>amfMmeN26LinkDegraded</div>
+        <div class="alarm-id">#40122 · MAJOR · 14:32 UTC</div>
+      </div>
+      <div class="alarm-item minor">
+        <div>pmCountersMissing</div>
+        <div class="alarm-id">#40918 · MINOR · 13:55 UTC</div>
+      </div>
+    </div>
+    <div class="rp-section">
+      <div class="rp-hdr">Quick Commands</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm amfMultiLink list --amfIntfType N2')">amfMultiLink list <span>N2</span></div>
+      <div class="qr-cmd" onclick="insertCmd('cmm alarmActive list')">alarmActive list</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm ueContext list')">ueContext list</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm tai list')">tai list</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm plmn list')">plmn list</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm amfLinkAdmin show --amfLinkType N2 --linkIndex 1')">amfLinkAdmin show</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm amfGParms show --amfGparmName rrcInactive')">amfGParms rrcInactive</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm nbiPing list --pingTarget 172.16.59.11 --pingSourceIp 172.16.46.201')">nbiPing gNB</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────────
+let history = [];
+let histIdx  = -1;
+let authenticated = true;
+let currentUser = 'cmm';
+let tutorialStep = 0;
+
+const out = document.getElementById('output');
+const inp = document.getElementById('term-input');
+
+// ─────────────────────────────────────────────────────────────
+// Output helpers
+// ─────────────────────────────────────────────────────────────
+function emit(html, cls='info') {
+  const d = document.createElement('div');
+  d.className = 'line ' + cls;
+  d.innerHTML = html;
+  out.appendChild(d);
+  out.scrollTop = out.scrollHeight;
+}
+
+function emitTable(headers, rows) {
+  const wrap = document.createElement('div');
+  wrap.className = 'tbl-wrap';
+  const t = document.createElement('table');
+  t.className = 'sim-tbl';
+  const thead = document.createElement('thead');
+  const hrow  = document.createElement('tr');
+  headers.forEach(h => { const th = document.createElement('th'); th.textContent = h; hrow.appendChild(th); });
+  thead.appendChild(hrow);
+  t.appendChild(thead);
+  const tbody = document.createElement('tbody');
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+    row.forEach(cell => {
+      const td = document.createElement('td');
+      if (typeof cell === 'object') { td.textContent = cell.v; td.className = cell.c || ''; }
+      else td.textContent = cell;
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  t.appendChild(tbody);
+  wrap.appendChild(t);
+  out.appendChild(wrap);
+  out.scrollTop = out.scrollHeight;
+}
+
+function blank() { emit(''); }
+
+// ─────────────────────────────────────────────────────────────
+// Boot splash
+// ─────────────────────────────────────────────────────────────
+function boot() {
+  emit('', 'dim');
+  emit('╔══════════════════════════════════════════════════════════════════╗', 'hdr');
+  emit('║         NOKIA · Cloud Mobility Manager (CMM)                     ║', 'hdr');
+  emit('║         Release CMM24.3   DN09131852 Issue 21-0                  ║', 'hdr');
+  emit('║         AMF CLI Simulator — Practice Environment                 ║', 'hdr');
+  emit('╚══════════════════════════════════════════════════════════════════╝', 'hdr');
+  blank();
+  emit('  Node       : necc0 (Active NECC)', 'dim');
+  emit('  NECC-1     : necc1 (Standby)', 'dim');
+  emit('  User       : cmm  [sysadmin]', 'dim');
+  emit('  Auth       : Authenticated', 'dim');
+  emit('  PLMN       : 302-720 (Bell Mobility)', 'dim');
+  emit('  AMF GUAMI  : 302720.01.01.01', 'dim');
+  blank();
+  emit('  Type <span style="color:var(--cyan)">help</span> for a command list, or <span style="color:var(--cyan)">tutorial</span> for a guided walkthrough.', 'info');
+  emit('  Click any item in the sidebar or Quick Commands panel to run it.', 'dim');
+  blank();
+}
+
+// ─────────────────────────────────────────────────────────────
+// Command dispatcher
+// ─────────────────────────────────────────────────────────────
+function dispatch(raw) {
+  const cmd = raw.trim();
+  if (!cmd) return;
+
+  emit('[cmm@necc0 ~]$ ' + cmd, 'cmd');
+
+  const lower = cmd.toLowerCase();
+  const args  = cmd.split(/\s+/);
+  const sub   = args[1] ? args[1].toLowerCase() : '';
+
+  // clear / cls
+  if (lower === 'clear' || lower === 'cls') { out.innerHTML = ''; return; }
+
+  // help
+  if (lower === 'help' || lower === 'cmm -h' || lower === 'cmm --help') { showHelp(); return; }
+
+  // tutorial
+  if (lower === 'tutorial') { runTutorial(); return; }
+
+  // authenticate
+  if (lower.startsWith('cmm authenticate')) { doAuthenticate(cmd); return; }
+
+  // cmm commands
+  if (lower.startsWith('cmm ')) {
+    dispatchCmm(cmd, args.slice(1));
+    return;
+  }
+
+  // Linux-like
+  if (lower === 'sudo pcs status') { pcsStatus(); return; }
+  if (lower.startsWith('sudo journalctl') || lower.startsWith('journalctl')) { journalCtl(cmd); return; }
+  if (lower.startsWith('ssh ')) { emit('ssh: Use cmm commands to interact with CMM. Try: cmm amfMultiLink list', 'warn'); return; }
+  if (lower === 'ls' || lower === 'ls -la') { lsCmd(); return; }
+  if (lower.startsWith('cat ') || lower.startsWith('tail ')) { catCmd(cmd); return; }
+
+  emit('Command not found: ' + args[0] + '. Type <span style="color:var(--cyan)">help</span> for available commands.', 'err');
+}
+
+// ─────────────────────────────────────────────────────────────
+// CMM command router
+// ─────────────────────────────────────────────────────────────
+function dispatchCmm(cmd, args) {
+  const sub = (args[0]||'').toLowerCase();
+  const action = (args[1]||'').toLowerCase();
+
+  switch(sub) {
+    case 'authenticate':         doAuthenticate(cmd); break;
+    case 'amfmultilink':         amfMultiLink(cmd, args); break;
+    case 'amflinkadmin':         amfLinkAdmin(cmd, args); break;
+    case 'amfgparms':            amfGParms(cmd, args); break;
+    case 'amfcapacitygparms':    amfCapacityGParms(cmd, args); break;
+    case 'amfhttp2ping':         amfHttp2Ping(cmd, args); break;
+    case 'nbipping':             nbiPing(cmd, args); break;
+    case 'alarmactive':          alarmActive(cmd, args); break;
+    case 'alarmhistory':         alarmHistory(cmd, args); break;
+    case 'alarmdefinition':      alarmDef(cmd, args); break;
+    case 'alarmignore':          alarmIgnore(cmd, args); break;
+    case 'plmn':                 plmnCmd(cmd, args); break;
+    case 'tai':                  taiCmd(cmd, args); break;
+    case 'allowedsnssai':        snssaiCmd(cmd, args); break;
+    case 'allowedsnssailist':    snssaiCmd(cmd, args); break;
+    case 'rmtendptcfg':          rmtEndPt(cmd, args); break;
+    case 'localendptcfg':        localEndPt(cmd, args); break;
+    case 'uecontext':            ueContext(cmd, args); break;
+    case 'uecontextcount':       ueCount(cmd, args); break;
+    case 'gparms':               gParmsCmd(cmd, args); break;
+    case 'clustermgmt':          clusterMgmt(cmd, args); break;
+    case 'sbiconnectiontesturi': sbiTest(cmd, args); break;
+    case 'prometheusGW'.toLowerCase(): prometheusGW(cmd, args); break;
+    case 'firewallrule':         firewallRule(cmd, args); break;
+    case 'counter':              counterCmd(cmd, args); break;
+    case 'amfeplmn':             amfEplmn(cmd, args); break;
+    case 'amfeplmnlist':         amfEplmn(cmd, args); break;
+    case 'serviceip':            serviceIp(cmd, args); break;
+    case 'amfemergencyprofile':  emergencyProfile(cmd, args); break;
+    case 'diamprofile':          diamProfile(cmd, args); break;
+    case 'hlsgrp':
+    case 'hssgrp':               hssGrp(cmd, args); break;
+    default:
+      if (cmd.includes('--help') || cmd.includes('-h')) {
+        showCmdHelp(sub);
+      } else {
+        emit('Error: Unknown CMM object: ' + sub, 'err');
+        emit('Run <span style="color:var(--cyan)">cmm -h</span> to list available commands.', 'dim');
+      }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// ── COMMAND IMPLEMENTATIONS ──
+// ─────────────────────────────────────────────────────────────
+
+function doAuthenticate(cmd) {
+  emit('Enter Username: john', 'dim');
+  emit('Enter Password:', 'dim');
+  emit('Authentication successful.', 'ok');
+}
+
+// ── amfMultiLink ─────────────────────────────────────────────
+function amfMultiLink(cmd, args) {
+  const intfType = getArg(cmd, '--amfIntfType') || getArg(cmd, '--amfLinkType');
+  const all = !intfType;
+
+  if (cmd.includes('show')) {
+    const idx = getArg(cmd, '--linkIndex') || '1';
+    emit('amfMultiLink show · linkIndex ' + idx, 'hdr');
+    blank();
+    emitTable(['Field','Value'], [
+      ['amfIntfType', intfType || 'N2'],
+      ['amfLinkType', 'N2'],
+      ['linkIndex', idx],
+      ['amfLinkAdminState', {v:'unlocked', c:'ok'}],
+      ['linkOperationState', {v:'enabled', c:'ok'}],
+      ['alarmState', {v:'none', c:'ok'}],
+      ['remoteIp1', '172.16.59.1' + idx],
+      ['remoteIp2', '0.0.0.0'],
+      ['localIp1', '172.16.46.201'],
+      ['localPort1', '36412'],
+      ['remotePort1', '36412'],
+    ]);
+    blank();
+    return;
+  }
+
+  // list
+  const n2Data = [
+    [{ v:'N2', c:'blue'},'N2','N2','1',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.11','0.0.0.0'],
+    [{ v:'N2', c:'blue'},'N2','N2','2',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.12','0.0.0.0'],
+    [{ v:'N2', c:'blue'},'N2','N2','3',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.13','0.0.0.0'],
+    [{ v:'N2', c:'blue'},'N2','N2','4',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.14','0.0.0.0'],
+    [{ v:'N2', c:'blue'},'N2','N2','5',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.15','0.0.0.0'],
+    [{ v:'N2', c:'blue'},'N2','N2','6',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.16','0.0.0.0'],
+    [{ v:'N2', c:'blue'},'N2','N2','7',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.17','0.0.0.0'],
+    [{ v:'N2', c:'blue'},'N2','N2','8',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.18','0.0.0.0'],
+    [{ v:'N2', c:'blue'},'N2','N2','9',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.19','0.0.0.0'],
+  ];
+  const n11Data = [
+    [{v:'N11',c:'blue'},'N11','SBI_Client','1',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.51','0.0.0.0'],
+    [{v:'N11',c:'blue'},'N11','SBI_Client','2',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.52','0.0.0.0'],
+  ];
+  const n26Data = [
+    [{v:'N26',c:'blue'},'N26','N26','1',{v:'unlocked',c:'ok'},{v:'disabled',c:'warn'},{v:'major',c:'err'},'172.16.59.91','0.0.0.0'],
+  ];
+  const n8Data = [
+    [{v:'N8',c:'blue'},'N8','SBI_Client','1',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.71','0.0.0.0'],
+  ];
+
+  const hdr = ['amfMultiLink','amfIntfType','amfLinkType','linkIndex','amfLinkAdminState','linkOperationState','alarmState','remoteIp1','remoteIp2'];
+
+  if (!intfType || intfType === 'N2')  emitTable(hdr, n2Data);
+  if (!intfType || intfType === 'N11') emitTable(hdr, n11Data);
+  if (!intfType || intfType === 'N26') emitTable(hdr, n26Data);
+  if (!intfType || intfType === 'N8')  emitTable(hdr, n8Data);
+  blank();
+  emit((intfType ? intfType + ' ' : 'All ') + 'links listed.', 'dim');
+}
+
+// ── amfLinkAdmin ─────────────────────────────────────────────
+function amfLinkAdmin(cmd, args) {
+  const linkType = getArg(cmd,'--amfLinkType') || 'N2';
+  const linkIdx  = getArg(cmd,'--linkIndex') || null;
+
+  if (cmd.toLowerCase().includes('modify')) {
+    const newState = getArg(cmd,'--amfLinkAdminState');
+    if (!newState) { emit('Error: --amfLinkAdminState required. Values: {blocked, locked, unlocked}', 'err'); return; }
+    emit('amfLinkAdmin modify: ' + linkType + ' link ' + (linkIdx||'1') + ' → ' + newState, 'ok');
+    emit('Operation successful.', 'ok');
+    return;
+  }
+
+  // show
+  emit('amfLinkAdmin · ' + linkType + (linkIdx ? ' · index ' + linkIdx : ''), 'hdr');
+  blank();
+  const rows = [];
+  const count = linkType === 'N2' ? 9 : linkType === 'N26' ? 1 : 2;
+  for (let i=1; i<=count; i++) {
+    if (linkIdx && linkIdx != i) continue;
+    const isN26 = linkType === 'N26';
+    rows.push([
+      linkType, i, {v:'unlocked',c:'ok'},
+      {v: isN26 ? 'disabled' : 'enabled', c: isN26 ? 'warn' : 'ok'},
+      {v: isN26 ? 'major' : 'none', c: isN26 ? 'err' : 'ok'},
+      '172.16.59.' + (linkType==='N2' ? 10+i : linkType==='N26' ? 91 : 50+i)
+    ]);
+  }
+  emitTable(['amfLinkType','linkIndex','amfLinkAdminState','linkOperationState','alarmState','remoteIp1'], rows);
+  blank();
+}
+
+// ── amfGParms ─────────────────────────────────────────────────
+const gParmsDB = {
+  amfRelativeCapacity:    { val: '128', desc: 'AMF Relative Capacity for gNB selection from AMF SET' },
+  autoAdjustCap:          { val: 'false', desc: 'Auto Adjust Relative Capacity based on CPP count' },
+  rrcInactive:            { val: 'true', desc: 'RRC Inactive feature — AMF provides CN Assistance info to gNB' },
+  smsOverNas:             { val: 'true', desc: 'SMS over NAS — enables SMS delivery via NAS signalling (N20 to SMSF)' },
+  sharedPlmnSupport:      { val: 'false', desc: 'Multiple Shared PLMN support (up to 8 PLMNs)' },
+  supportAusfUdmGroupId:  { val: 'true', desc: 'Store GroupId from AUSF/UDM profile for subsequent selection' },
+  sbiHttp2PingKeepAlive:  { val: 'true', desc: 'HTTP2 ping resets SBI link availability keep-alive' },
+  tappingActivated:       { val: 'false', desc: 'AMF Tapping functionality status' },
+  rimInformationTransfer: { val: 'false', desc: 'NGAP RIM Information Transfer procedure support' },
+  sendMappedGummei:       { val: 'true', desc: 'Send mapped GUAMI in NGAP Setup Response for 4G/5G coexistence' },
+  smContextStatusNotifyRequired: { val:'true', desc:'AMF waits for SMF SM Context Status Notify before deleting PDU session'},
+  udmImmediateReport:     { val: 'true', desc: 'Immediate report indication to UDM' },
+};
+
+function amfGParms(cmd, args) {
+  const name  = getArg(cmd,'--amfGparmName');
+  const value = getArg(cmd,'--amfGparmValue');
+
+  if (cmd.toLowerCase().includes('list')) {
+    emit('amfGParms — all parameters', 'hdr');
+    blank();
+    const rows = Object.entries(gParmsDB).map(([k,v]) => [k, v.val, v.desc]);
+    emitTable(['amfGparmName','amfGparmValue','Description'], rows);
+    blank();
+    return;
+  }
+  if (cmd.toLowerCase().includes('modify') && name && value) {
+    if (gParmsDB[name]) { gParmsDB[name].val = value; emit('amfGParms modified: ' + name + ' = ' + value, 'ok'); }
+    else emit('Error: Unknown parameter: ' + name, 'err');
+    return;
+  }
+  if (name) {
+    const p = gParmsDB[name];
+    if (!p) { emit('Error: Unknown amfGparmName: ' + name, 'err'); return; }
+    emit('amfGParms · ' + name, 'hdr');
+    blank();
+    emitTable(['Field','Value'], [['amfGparmName', name],['amfGparmValue',{v:p.val,c:'ok'}],['Description',p.desc]]);
+    blank();
+    return;
+  }
+  emit('Syntax: cmm amfGParms show --amfGparmName <name>', 'warn');
+  emit('        cmm amfGParms list', 'warn');
+  emit('        cmm amfGParms modify --amfGparmName <name> --amfGparmValue <value>', 'warn');
+}
+
+// ── amfCapacityGParms ─────────────────────────────────────────
+function amfCapacityGParms(cmd, args) {
+  const name = getArg(cmd,'--amfGparmName');
+  emit('amfCapacityGParms', 'hdr');
+  blank();
+  emitTable(['amfGparmName','amfGparmValue','Description'],[
+    ['amfRelativeCapacity',{v:'128',c:'ok'},'Relative AMF Capacity (0-255) for gNB load balancing within AMF SET'],
+    ['autoAdjustCap',{v:'false',c:'dim'},'Auto-adjust capacity based on active CPPS count'],
+    ['numProtCpps',{v:'2',c:'ok'},'Number of protection CPPS (k in n+k sparing)'],
+    ['relativeCapacityCpps',{v:'16',c:'ok'},'Capacity per CPPS in n+k scheme'],
+    ['relativeCapacityIPDS0',{v:'64',c:'ok'},'Relative Capacity for IPDS Pool 0'],
+    ['relativeCapacityIPDSAdditional',{v:'32',c:'ok'},'Capacity per additional IPDS Pool'],
+    ['maxTrackingAreaRelativeCapacity',{v:'false',c:'dim'},'Use max TA relative capacity in NG Setup Response'],
+    ['trackingAreaRelativeCapacity',{v:'128',c:'ok'},'AMF relative capacity per tracking area'],
+  ]);
+  blank();
+}
+
+// ── HTTP2 Ping ────────────────────────────────────────────────
+function amfHttp2Ping(cmd, args) {
+  const intf = getArg(cmd,'--amfClientIntf') || 'N8';
+  const ip   = getArg(cmd,'--amfRmtEndIp') || '172.16.59.71';
+  const port = getArg(cmd,'--amfRmtEndIpPort') || '8080';
+  emit('HTTP/2 Ping → ' + intf + ' ' + ip + ':' + port, 'hdr');
+  blank();
+  emitTable(['amfHttp2Ping','http2PingTimeOut','numHttp2Ping','http2PingStatus','roundTripTimeSec','roundTripTimeUsec'],[
+    [intf+'~1~'+ip+'~'+port+'~1','5','5',{v:'success',c:'ok'},'0','46900'],
+    [intf+'~1~'+ip+'~'+port+'~2','5','5',{v:'success',c:'ok'},'0','31913'],
+    [intf+'~1~'+ip+'~'+port+'~3','5','5',{v:'success',c:'ok'},'0','25589'],
+    [intf+'~1~'+ip+'~'+port+'~4','5','5',{v:'success',c:'ok'},'0','24688'],
+    [intf+'~1~'+ip+'~'+port+'~5','5','5',{v:'success',c:'ok'},'0','24945'],
+  ]);
+  blank();
+  emit('avg RTT: 30.8ms  max: 46.9ms  loss: 0%', 'ok');
+}
+
+// ── NBI Ping ─────────────────────────────────────────────────
+function nbiPing(cmd, args) {
+  const target = getArg(cmd,'--pingTarget') || '172.16.59.11';
+  const src    = getArg(cmd,'--pingSourceIp') || '172.16.46.201';
+  emit('PING ' + target + ' from ' + src, 'hdr');
+  blank();
+  emitTable(['nbiPing','pingOutput'],[
+    [target+'~0','PING '+target+' ('+target+') from '+src+' : 56(84) bytes of data.'],
+    [target+'~1','64 bytes from '+target+': icmp_seq=1 ttl=64 time=2.60 ms'],
+    [target+'~2','64 bytes from '+target+': icmp_seq=2 ttl=64 time=1.71 ms'],
+    [target+'~3','64 bytes from '+target+': icmp_seq=3 ttl=64 time=2.62 ms'],
+    [target+'~4','64 bytes from '+target+': icmp_seq=4 ttl=64 time=3.00 ms'],
+    [target+'~5','64 bytes from '+target+': icmp_seq=5 ttl=64 time=2.44 ms'],
+    [target+'~7','--- '+target+' ping statistics ---'],
+    [target+'~8','5 packets transmitted, 5 received, 0% packet loss, time 4005ms'],
+    [target+'~9',{v:'rtt min/avg/max/mdev = 1.712/2.475/3.000/0.425 ms',c:'ok'}],
+  ]);
+  blank();
+}
+
+// ── Alarms ───────────────────────────────────────────────────
+const alarms = [
+  { id:'40122', name:'amfMmeN26LinkDegraded',   sev:'MAJOR',  raised:'2024-11-14T14:32:00Z', obj:'N26/linkIndex=1', txt:'N26 interface link between AMF and MME is degraded. Check amfMultiLink for N26.' },
+  { id:'40918', name:'pmCountersMissing',        sev:'MINOR',  raised:'2024-11-14T13:55:00Z', obj:'pmCollector', txt:'PM counter data for one or more measurement intervals is missing.' },
+];
+
+function alarmActive(cmd, args) {
+  if (cmd.toLowerCase().includes('show')) {
+    const id = getArg(cmd,'--alarmId') || '40122';
+    const a = alarms.find(x=>x.id===id) || alarms[0];
+    emit('alarmActive · #' + a.id, 'hdr');
+    blank();
+    emitTable(['Field','Value'],[
+      ['alarmId', a.id],
+      ['alarmName', a.name],
+      ['severity', {v:a.sev, c:a.sev==='MAJOR'?'err':a.sev==='MINOR'?'warn':'ok'}],
+      ['raisedTime', a.raised],
+      ['managedObject', a.obj],
+      ['additionalText', a.txt],
+    ]);
+    blank();
+    return;
+  }
+  emit('Active Alarms', 'hdr');
+  blank();
+  emitTable(['alarmId','alarmName','severity','raisedTime','managedObject'],[
+    ['40122','amfMmeN26LinkDegraded',{v:'MAJOR',c:'err'},'2024-11-14T14:32:00Z','N26/linkIndex=1'],
+    ['40918','pmCountersMissing',{v:'MINOR',c:'warn'},'2024-11-14T13:55:00Z','pmCollector'],
+  ]);
+  blank();
+  emit('Total active alarms: 2  (CRITICAL: 0, MAJOR: 1, MINOR: 1)', 'dim');
+}
+
+function alarmHistory(cmd, args) {
+  emit('Alarm History (last 10)', 'hdr');
+  blank();
+  emitTable(['alarmId','alarmName','severity','raisedTime','clearedTime'],[
+    ['40122','amfMmeN26LinkDegraded',{v:'MAJOR',c:'err'},'2024-11-14T14:32:00Z',{v:'active',c:'err'}],
+    ['40918','pmCountersMissing',{v:'MINOR',c:'warn'},'2024-11-14T13:55:00Z',{v:'active',c:'warn'}],
+    ['40100','N2LinkFailed',{v:'MAJOR',c:'err'},'2024-11-14T09:11:00Z','2024-11-14T09:18:00Z'],
+    ['40201','nrfDeregistered',{v:'MAJOR',c:'err'},'2024-11-13T22:44:00Z','2024-11-13T22:46:00Z'],
+    ['40918','pmCountersMissing',{v:'MINOR',c:'warn'},'2024-11-13T01:00:00Z','2024-11-13T02:01:00Z'],
+  ]);
+  blank();
+}
+
+function alarmDef(cmd, args) {
+  const id = getArg(cmd,'--alarmId') || '40122';
+  emit('alarmDefinition · #' + id, 'hdr');
+  blank();
+  if (id==='40122' || id==='40100') {
+    emitTable(['Field','Value'],[
+      ['alarmId','40122'],
+      ['alarmName','amfMmeN26LinkDegraded'],
+      ['severity','MAJOR'],
+      ['description','The N26 interface link between AMF and MME has entered a degraded state. At least one of the configured N26 links is not operational.'],
+      ['corrAction','Check cmm amfMultiLink list --amfIntfType N26. Verify MME remote endpoint with cmm rmtEndPtCfg show. Use cmm nbiPing to verify IP connectivity.'],
+      ['clearCondition','All N26 links return to enabled/unlocked state.'],
+    ]);
+  } else if (id==='40918') {
+    emitTable(['Field','Value'],[
+      ['alarmId','40918'],
+      ['alarmName','pmCountersMissing'],
+      ['severity','MINOR'],
+      ['description','PM counters for one or more intervals are missing. Information only.'],
+      ['corrAction','Check pmcollector: sudo journalctl -u pmcollector. Verify /data-pm/ directory for measurement files.'],
+    ]);
+  } else {
+    emit('alarmId ' + id + ' not found in definition database.', 'warn');
+  }
+  blank();
+}
+
+function alarmIgnore(cmd, args) {
+  const id = getArg(cmd,'--alarmId');
+  if (!id) { emit('Syntax: cmm alarmIgnore create --alarmId <id>', 'warn'); return; }
+  emit('alarmIgnore: alarmId ' + id + ' will be suppressed.', 'ok');
+  emit('Warning: Use alarm suppression only during planned maintenance windows.', 'warn');
+}
+
+// ── PLMN ─────────────────────────────────────────────────────
+function plmnCmd(cmd, args) {
+  if (cmd.toLowerCase().includes('show')) {
+    const n = getArg(cmd,'--plmnName') || '302_720';
+    emit('plmn · ' + n, 'hdr');
+    blank();
+    emitTable(['Field','Value'],[
+      ['plmnName', n],
+      ['mcc', '302'],
+      ['mnc', '720'],
+      ['description', 'Bell Mobility (Home PLMN)'],
+      ['plmnType', 'home'],
+      ['nrfSupport', {v:'true',c:'ok'}],
+    ]);
+    blank(); return;
+  }
+  emit('PLMN List', 'hdr');
+  blank();
+  emitTable(['plmnName','mcc','mnc','description','plmnType'],[
+    ['302_720','302','720','Bell Mobility','home'],
+    ['302_610','302','610','Bell Mobility (Roaming A)','visitor'],
+    ['302_220','302','220','Telus Mobility (Visitor)','visitor'],
+    ['302_490','302','490','Freedom Mobile (Visitor)','visitor'],
+  ]);
+  blank();
+}
+
+// ── TAI ──────────────────────────────────────────────────────
+function taiCmd(cmd, args) {
+  if (cmd.toLowerCase().includes('create')) {
+    const plmn = getArg(cmd,'--plmnName');
+    const tac  = getArg(cmd,'--tac');
+    if (!plmn||!tac) { emit('Syntax: cmm tai create --plmnName <name> --tac <tac>', 'err'); return; }
+    emit('TAI created: plmnName=' + plmn + ' tac=' + tac, 'ok');
+    return;
+  }
+  if (cmd.toLowerCase().includes('delete')) {
+    const plmn = getArg(cmd,'--plmnName');
+    const tac  = getArg(cmd,'--tac');
+    emit('TAI deleted: plmnName=' + plmn + ' tac=' + tac, 'ok');
+    return;
+  }
+  emit('TAI List', 'hdr');
+  blank();
+  emitTable(['plmnName','tac','description'],[
+    ['302_720','1001','Toronto Downtown'],
+    ['302_720','1002','Toronto East'],
+    ['302_720','1003','Toronto West'],
+    ['302_720','2001','Vancouver Core'],
+    ['302_720','2002','Vancouver Metro'],
+    ['302_720','3001','Montreal'],
+    ['302_720','4001','Calgary'],
+    ['302_720','5001','Ottawa'],
+  ]);
+  blank();
+}
+
+// ── SNSSAI ───────────────────────────────────────────────────
+function snssaiCmd(cmd, args) {
+  emit('Allowed S-NSSAI (Network Slices)', 'hdr');
+  blank();
+  emitTable(['sst','sd','sliceName','status'],[
+    ['1','000001','eMBB (Default)',{v:'active',c:'ok'}],
+    ['1','000002','eMBB (Priority)',{v:'active',c:'ok'}],
+    ['2','000001','URLLC (IoT)',{v:'active',c:'ok'}],
+    ['3','000001','mMTC',{v:'active',c:'ok'}],
+    ['4','000001','V2X',{v:'inactive',c:'dim'}],
+  ]);
+  blank();
+}
+
+// ── Remote Endpoints ─────────────────────────────────────────
+function rmtEndPt(cmd, args) {
+  if (cmd.toLowerCase().includes('create')) {
+    const name   = getArg(cmd,'--name');
+    const intf   = getArg(cmd,'--interfaceName');
+    const ip1    = getArg(cmd,'--ip1');
+    if (!name||!intf||!ip1) { emit('Syntax: cmm rmtEndPtCfg create --name <n> --interfaceName <i> --ip1 <ip>', 'err'); return; }
+    emit('rmtEndPtCfg created: ' + name, 'ok');
+    return;
+  }
+  emit('Remote Endpoint Configuration', 'hdr');
+  blank();
+  emitTable(['name','interfaceName','ip1','ip2','port','operState'],[
+    ['gNB_Core_1','N2 (NGAP)','172.16.59.11','0.0.0.0','36412',{v:'enabled',c:'ok'}],
+    ['gNB_Core_2','N2 (NGAP)','172.16.59.12','0.0.0.0','36412',{v:'enabled',c:'ok'}],
+    ['UDM_primary','N8 (SBI)','172.16.59.71','0.0.0.0','8080',{v:'enabled',c:'ok'}],
+    ['SMF_primary','N11 (SBI)','172.16.59.51','0.0.0.0','8080',{v:'enabled',c:'ok'}],
+    ['AUSF_primary','N12 (SBI)','172.16.59.61','0.0.0.0','8080',{v:'enabled',c:'ok'}],
+    ['NRF_primary','Nnrf (SBI)','172.16.59.81','0.0.0.0','8080',{v:'enabled',c:'ok'}],
+    ['MME_legacy_1','N26','172.16.59.91','0.0.0.0','2123',{v:'disabled',c:'warn'}],
+  ]);
+  blank();
+}
+
+function localEndPt(cmd, args) {
+  if (cmd.toLowerCase().includes('create')) {
+    const intf = getArg(cmd,'--interfaceName');
+    const mh   = getArg(cmd,'--multiHomed');
+    emit('localEndPtCfg created: interfaceName=' + intf, 'ok');
+    return;
+  }
+  emit('Local Endpoint Configuration', 'hdr');
+  blank();
+  emitTable(['interfaceName','localIp1','localIp2','multiHomed','port'],[
+    ['N2 (S1MME)','172.16.46.201','0.0.0.0','false','36412'],
+    ['N8','172.16.46.202','0.0.0.0','false','8080'],
+    ['N11','172.16.46.202','0.0.0.0','false','8080'],
+    ['N12','172.16.46.202','0.0.0.0','false','8080'],
+    ['N15','172.16.46.202','0.0.0.0','false','8080'],
+    ['Nnrf','172.16.46.202','0.0.0.0','false','8080'],
+    ['N26','172.16.46.203','0.0.0.0','true','2123'],
+  ]);
+  blank();
+}
+
+// ── UE Context ───────────────────────────────────────────────
+function ueContext(cmd, args) {
+  const imsi = getArg(cmd,'--imsi');
+  const guti = getArg(cmd,'--guti');
+
+  if (cmd.toLowerCase().includes('show') && (imsi||guti)) {
+    const id = imsi || guti;
+    emit('UE Context · ' + (imsi?'IMSI:':'GUTI:') + id, 'hdr');
+    blank();
+    emitTable(['Field','Value'],[
+      ['imsi', imsi || '302720100000001'],
+      ['guti', '302720010101AABB01'],
+      ['regState', {v:'registered',c:'ok'}],
+      ['cmState', {v:'connected',c:'ok'}],
+      ['rmState', {v:'registered',c:'ok'}],
+      ['plmn', '302-720'],
+      ['tai', '302720:1001'],
+      ['cellId', '0x100A'],
+      ['gnbId', '172.16.59.11'],
+      ['pduSessions', '2'],
+      ['snssai-1', 'SST=1 SD=000001 (eMBB)'],
+      ['snssai-2', 'SST=2 SD=000001 (URLLC)'],
+      ['ueSecCap', '5G-EA0, 5G-IA1'],
+      ['lastActivity', '2024-11-14T14:45:00Z'],
+    ]);
+    blank();
+    return;
+  }
+  if (cmd.toLowerCase().includes('list')) {
+    emit('UE Context List (showing 10 of 1,247)', 'hdr');
+    blank();
+    emitTable(['imsi','regState','cmState','tai','gnbId','pduSessions'],[
+      ['302720100000001',{v:'registered',c:'ok'},{v:'connected',c:'ok'},'302720:1001','172.16.59.11','2'],
+      ['302720100000002',{v:'registered',c:'ok'},{v:'idle',c:'dim'},'302720:1002','172.16.59.12','1'],
+      ['302720100000003',{v:'registered',c:'ok'},{v:'connected',c:'ok'},'302720:1001','172.16.59.11','3'],
+      ['302720100000004',{v:'registered',c:'ok'},{v:'connected',c:'ok'},'302720:2001','172.16.59.13','1'],
+      ['302720100000005',{v:'registered',c:'ok'},{v:'idle',c:'dim'},'302720:3001','172.16.59.14','1'],
+      ['302720100000006',{v:'deregistered',c:'warn'},{v:'idle',c:'dim'},'302720:1003','172.16.59.15','0'],
+      ['302720100000007',{v:'registered',c:'ok'},{v:'connected',c:'ok'},'302720:4001','172.16.59.16','2'],
+      ['302720100000008',{v:'registered',c:'ok'},{v:'connected',c:'ok'},'302720:1001','172.16.59.11','1'],
+      ['302720100000009',{v:'registered',c:'ok'},{v:'idle',c:'dim'},'302720:2002','172.16.59.17','1'],
+      ['302720100000010',{v:'registered',c:'ok'},{v:'connected',c:'ok'},'302720:5001','172.16.59.18','2'],
+    ]);
+    blank();
+    emit('Tip: cmm ueContext show --imsi <imsi> for details.', 'dim');
+    return;
+  }
+  emit('Syntax: cmm ueContext list | cmm ueContext show --imsi <imsi>', 'warn');
+}
+
+function ueCount(cmd, args) {
+  emit('UE Context Count', 'hdr');
+  blank();
+  emitTable(['State','Count'],[
+    ['Total registered',{v:'1247',c:'ok'}],
+    ['CM-Connected',{v:'834',c:'ok'}],
+    ['CM-Idle',{v:'413',c:'dim'}],
+    ['Deregistered (pending)',{v:'12',c:'warn'}],
+    ['Emergency',{v:'0',c:'dim'}],
+  ]);
+  blank();
+}
+
+// ── gParms ───────────────────────────────────────────────────
+function gParmsCmd(cmd, args) {
+  const name = getArg(cmd,'--gParmName');
+  const db = {
+    enablePrometheusGW: 'true',
+    prometheusMode: 'push',
+    prometheusFormat: 'advanced',
+    prometheusRequests: '1000',
+    prometheusSlidingWindow: '60',
+  };
+  if (name && db[name] !== undefined) {
+    emit('gParms · ' + name, 'hdr');
+    blank();
+    emitTable(['gParmName','gParmValue'],[[name,{v:db[name],c:'ok'}]]);
+    blank();
+  } else {
+    emit('gParms List', 'hdr');
+    blank();
+    emitTable(['gParmName','gParmValue'], Object.entries(db).map(([k,v])=>[k,{v,c:'ok'}]));
+    blank();
+  }
+}
+
+// ── clusterMgmt ──────────────────────────────────────────────
+function clusterMgmt(cmd, args) {
+  const target = getArg(cmd,'--target') || '*';
+  emit('clusterMgmt test.ping · target: ' + target, 'hdr');
+  blank();
+  emitTable(['node','ip','pingStatus','rtt_ms'],[
+    ['necc0','172.16.10.1',{v:'alive',c:'ok'},'0.3'],
+    ['necc1','172.16.10.2',{v:'alive',c:'ok'},'0.4'],
+    ['cpps-1','172.16.10.11',{v:'alive',c:'ok'},'0.5'],
+    ['cpps-2','172.16.10.12',{v:'alive',c:'ok'},'0.5'],
+    ['cpps-3','172.16.10.13',{v:'alive',c:'ok'},'0.6'],
+    ['ipds-1','172.16.10.21',{v:'alive',c:'ok'},'0.4'],
+    ['ipds-2','172.16.10.22',{v:'alive',c:'ok'},'0.4'],
+  ]);
+  blank();
+}
+
+// ── pcs status ───────────────────────────────────────────────
+function pcsStatus() {
+  emit('Pacemaker Cluster Status', 'hdr');
+  blank();
+  emit('Cluster name: cmm-cluster', 'info');
+  emit('Stack: corosync', 'info');
+  blank();
+  emitTable(['Resource','State','Node'],[
+    ['cmm-vip',{v:'Started',c:'ok'},'necc0'],
+    ['cmm-db-master',{v:'Master',c:'ok'},'necc0'],
+    ['cmm-db-slave',{v:'Slave',c:'ok'},'necc1'],
+    ['alarmconsumer',{v:'Started',c:'ok'},'necc0'],
+    ['alarmkeeper',{v:'Started',c:'ok'},'necc0'],
+    ['pmcollector',{v:'Started',c:'ok'},'necc0'],
+    ['pmaggregator',{v:'Started',c:'ok'},'necc0'],
+    ['prometheusclient',{v:'Started',c:'ok'},'necc0'],
+  ]);
+  blank();
+  emit('2 nodes configured, 2 online.', 'ok');
+}
+
+function journalCtl(cmd) {
+  const svc = cmd.match(/-u (\S+)/)?.[1] || 'cmm';
+  emit('journalctl -u ' + svc + ' (last entries)', 'hdr');
+  blank();
+  const now = new Date().toISOString().replace('T',' ').substring(0,19);
+  emit('Nov 14 14:45:12 necc0 ' + svc + '[1234]: INFO  Service healthy', 'dim');
+  emit('Nov 14 14:44:00 necc0 ' + svc + '[1234]: INFO  Heartbeat sent to NECC-1', 'dim');
+  emit('Nov 14 14:43:01 necc0 ' + svc + '[1234]: INFO  PM interval collected', 'dim');
+  emit('Nov 14 14:32:01 necc0 ' + svc + '[1234]: WARN  N26 link index=1 state changed to disabled', 'warn');
+  blank();
+}
+
+function lsCmd() {
+  emit('/home/cmm', 'hdr');
+  blank();
+  emit('drwxr-xr-x  cmm cmm    /data-pm/', 'dim');
+  emit('drwxr-xr-x  cmm cmm    /data-perf/', 'dim');
+  emit('-rw-r--r--  cmm cmm    /var/log/cli_cmd.log', 'dim');
+  emit('-rw-r--r--  cmm cmm    /var/log/messages', 'dim');
+  blank();
+}
+
+function catCmd(cmd) {
+  emit('For log files, use: sudo journalctl -u <service>', 'dim');
+  emit('CMM log dir: /var/log/app/signaling.log  /var/log/messages', 'dim');
+}
+
+function prometheusGW(cmd, args) {
+  emit('prometheusGW Configuration', 'hdr');
+  blank();
+  emitTable(['name','ip','port','status'],[
+    ['prometheusGW_1','172.16.100.10','9091',{v:'connected',c:'ok'}],
+    ['prometheusGW_2','172.16.100.11','9091',{v:'connected',c:'ok'}],
+  ]);
+  blank();
+}
+
+function firewallRule(cmd, args) {
+  emit('firewallRule List', 'hdr');
+  blank();
+  emitTable(['name','srcIp','dstPort','protocol','action'],[
+    ['allow_prometheus_pull','172.16.100.0/24','14300','TCP',{v:'allow',c:'ok'}],
+    ['allow_oam','10.0.0.0/8','22','TCP',{v:'allow',c:'ok'}],
+    ['deny_all','0.0.0.0/0','*','*',{v:'deny',c:'err'}],
+  ]);
+  blank();
+}
+
+function counterCmd(cmd, args) {
+  const id = getArg(cmd, '31001') || args[2] || '31001';
+  emit('PM Counter · ' + id, 'hdr');
+  blank();
+  emitTable(['counter','value','interval','unit'],[
+    ['amf.reg.initial.success','12480','15min','count'],
+    ['amf.reg.periodic.success','8340','15min','count'],
+    ['amf.reg.deregistration','210','15min','count'],
+    ['amf.n2.setup.success','4','15min','count'],
+    ['amf.n11.pdu.create','3920','15min','count'],
+  ]);
+  blank();
+}
+
+function amfEplmn(cmd, args) {
+  emit('amfEplmn (Equivalent PLMN) List', 'hdr');
+  blank();
+  emitTable(['plmnName','equivalentPlmn'],[
+    ['302_720','302_610'],
+    ['302_720','302_630'],
+  ]);
+  blank();
+}
+
+function serviceIp(cmd, args) {
+  emit('Service IP List', 'hdr');
+  blank();
+  emitTable(['name','ip','type','interface'],[
+    ['oam-vip','172.16.10.100','OAM','eth0'],
+    ['n2-svc','172.16.46.201','Signaling','eth1'],
+    ['sbi-svc','172.16.46.202','SBI','eth1'],
+    ['n26-svc','172.16.46.203','N26','eth2'],
+    ['prometheus-ext','172.16.100.5','Prometheus','eth0'],
+  ]);
+  blank();
+}
+
+function emergencyProfile(cmd, args) {
+  emit('amfEmergencyProfile', 'hdr');
+  blank();
+  emitTable(['name','emergencyDNN','emergencySnssai','priorityLevel'],[
+    ['emergency_default','emergency','SST=1 SD=000001','1'],
+    ['emergency_unauthenticated','sos','SST=1 SD=000001','1'],
+  ]);
+  blank();
+}
+
+function diamProfile(cmd, args) {
+  if (cmd.toLowerCase().includes('create')) {
+    const name = getArg(cmd,'--name');
+    const dwr  = getArg(cmd,'--dwrFreqTimer') || '10000';
+    emit('diamProfile created: name=' + name + ' dwrFreqTimer=' + dwr, 'ok');
+    return;
+  }
+  emit('Diameter Profile List', 'hdr');
+  blank();
+  emitTable(['name','dwrFreqTimer','dwrMsgTimer','dwrRetransMax','cerRetransMax','diamProductName'],[
+    ['1','10000','2000','3','3','MME Diameter'],
+    ['2','15000','3000','3','5','AMF Diameter GW'],
+  ]);
+  blank();
+}
+
+function hssGrp(cmd, args) {
+  emit('hssGrp', 'hdr');
+  blank();
+  emitTable(['name','hssIp','groupId','status'],[
+    ['HSS_primary','172.16.59.31','1',{v:'active',c:'ok'}],
+    ['HSS_secondary','172.16.59.32','1',{v:'standby',c:'dim'}],
+  ]);
+  blank();
+}
+
+function sbiTest(cmd, args) {
+  const uri = getArg(cmd,'--targetUri') || 'http://172.16.59.71:8080/nudm-sdm/v2/imsi-302720100000001/sdm-subscriptions';
+  const ep  = getArg(cmd,'--endPointName') || 'N8';
+  emit('sbiConnectionTestUri · ' + ep, 'hdr');
+  blank();
+  emitTable(['sbiConnectionTestUri','connectionTestStatus','requestMethod'],[
+    [ep + '~' + uri, {v:'Http2 status code 200',c:'ok'}, 'OPTIONS'],
+  ]);
+  blank();
+}
+
+// ── Help ─────────────────────────────────────────────────────
+function showHelp() {
+  emit('Nokia CMM AMF CLI Simulator — Available Commands', 'hdr');
+  blank();
+  emit('── AMF Management ─────────────────────────────────────────', 'dim');
+  emit('  cmm amfMultiLink list [--amfIntfType {N2,N8,N11,N12,N14,N15,N26,Nnrf,...}]', 'info');
+  emit('  cmm amfMultiLink show --amfIntfType N2 --linkIndex 1', 'info');
+  emit('  cmm amfLinkAdmin show --amfLinkType {N2,N26,SBI_Client,SBI_Server} [--linkIndex N]', 'info');
+  emit('  cmm amfLinkAdmin modify --amfLinkType N2 --linkIndex 1 --amfLinkAdminState {blocked,locked,unlocked}', 'info');
+  emit('  cmm amfGParms show --amfGparmName <name>  |  list  |  modify', 'info');
+  emit('  cmm amfCapacityGParms show --amfGparmName <name>', 'info');
+  blank();
+  emit('── UE & Subscribers ───────────────────────────────────────', 'dim');
+  emit('  cmm ueContext list', 'info');
+  emit('  cmm ueContext show --imsi <imsi>', 'info');
+  emit('  cmm ueContextCount list', 'info');
+  blank();
+  emit('── Network Configuration ──────────────────────────────────', 'dim');
+  emit('  cmm plmn list  |  show --plmnName <name>', 'info');
+  emit('  cmm tai list   |  create --plmnName <name> --tac <tac>  |  delete', 'info');
+  emit('  cmm allowedSnssai list', 'info');
+  emit('  cmm rmtEndPtCfg list | create --name <n> --interfaceName <i> --ip1 <ip>', 'info');
+  emit('  cmm localEndPtCfg list | create --interfaceName <i> [--multiHomed {true,false}]', 'info');
+  emit('  cmm amfEplmn list', 'info');
+  emit('  cmm serviceIp list', 'info');
+  blank();
+  emit('── Alarms & Faults ────────────────────────────────────────', 'dim');
+  emit('  cmm alarmActive list   |  show --alarmId <id>', 'info');
+  emit('  cmm alarmHistory list', 'info');
+  emit('  cmm alarmDefinition show --alarmId <id>', 'info');
+  emit('  cmm alarmIgnore create --alarmId <id>', 'info');
+  blank();
+  emit('── Diagnostics ────────────────────────────────────────────', 'dim');
+  emit('  cmm nbiPing list --pingTarget <ip> --pingSourceIp <ip>', 'info');
+  emit('  cmm amfHttp2Ping list --amfClientIntf N8 --amfRmtEndIp <ip> --amfRmtEndIpPort 8080', 'info');
+  emit('  cmm sbiConnectionTestUri list --targetUri <uri> --endPointName N8', 'info');
+  emit('  cmm clusterMgmt test.ping --target \'*\'', 'info');
+  blank();
+  emit('── Performance ────────────────────────────────────────────', 'dim');
+  emit('  cmm gParms show --gParmName enablePrometheusGW', 'info');
+  emit('  cmm prometheusGW list', 'info');
+  emit('  cmm firewallRule list', 'info');
+  emit('  cmm counter show <counterId>', 'info');
+  blank();
+  emit('── System ─────────────────────────────────────────────────', 'dim');
+  emit('  cmm authenticate', 'info');
+  emit('  cmm diamProfile create --name 1 --dwrFreqTimer 10000 --diamProductName "AMF Diameter"', 'info');
+  emit('  cmm amfEmergencyProfile list', 'info');
+  emit('  sudo pcs status', 'info');
+  emit('  sudo journalctl -u <service>', 'info');
+  emit('  clear', 'info');
+  emit('  tutorial', 'info');
+  blank();
+}
+
+function showCmdHelp(sub) {
+  emit('Help: cmm ' + sub, 'hdr');
+  blank();
+  emit('Commands: create, modify, delete, show, list', 'dim');
+  emit('Parameters: --<name> <value>   (optional: [--<name> <value>])', 'dim');
+  emit('Formats: -f {json,plain,table,yaml}', 'dim');
+  blank();
+  emit('Example:', 'dim');
+  emit('  cmm ' + sub + ' list', 'info');
+  emit('  cmm ' + sub + ' show --name <value>', 'info');
+  blank();
+}
+
+// ── Tutorial ─────────────────────────────────────────────────
+const tutorialSteps = [
+  { msg: '📚 Welcome to the Nokia AMF CLI Tutorial!\n   We\'ll walk through key operational tasks step-by-step.\n\n   Step 1/6: Check active alarms first — always good practice.\n   Try: <span style="color:var(--cyan)">cmm alarmActive list</span>', hint:'cmm alarmActive list' },
+  { msg: '✅ Step 2/6: Investigate the N26 alarm.\n   Get details: <span style="color:var(--cyan)">cmm alarmDefinition show --alarmId 40122</span>', hint:'cmm alarmDefinition show --alarmId 40122' },
+  { msg: '✅ Step 3/6: Check N26 link status as the alarm suggests.\n   Try: <span style="color:var(--cyan)">cmm amfMultiLink list --amfIntfType N26</span>', hint:'cmm amfMultiLink list --amfIntfType N26' },
+  { msg: '✅ Step 4/6: Ping the MME to check IP connectivity.\n   Try: <span style="color:var(--cyan)">cmm nbiPing list --pingTarget 172.16.59.91 --pingSourceIp 172.16.46.203</span>', hint:'cmm nbiPing list --pingTarget 172.16.59.91 --pingSourceIp 172.16.46.203' },
+  { msg: '✅ Step 5/6: Check AMF capacity parameters.\n   Try: <span style="color:var(--cyan)">cmm amfCapacityGParms show --amfGparmName amfRelativeCapacity</span>', hint:'cmm amfCapacityGParms show --amfGparmName amfRelativeCapacity' },
+  { msg: '✅ Step 6/6: List all registered UEs and check system load.\n   Try: <span style="color:var(--cyan)">cmm ueContextCount list</span>', hint:'cmm ueContextCount list' },
+  { msg: '🎉 Tutorial complete! You\'ve covered:\n   ✔ Alarm investigation workflow\n   ✔ Link status verification\n   ✔ Connectivity diagnostics (NBI ping)\n   ✔ Capacity management\n   ✔ UE context monitoring\n\n   Type <span style="color:var(--cyan)">help</span> to explore more commands.', hint:null },
+];
+
+let tStep = 0;
+function runTutorial() {
+  tStep = 0;
+  emit('', 'dim');
+  emit('─────────────────────────── GUIDED TUTORIAL ───────────────────────────', 'hdr');
+  emit(tutorialSteps[0].msg, 'bright');
+  blank();
+}
+
+// ─────────────────────────────────────────────────────────────
+// Tab autocomplete
+// ─────────────────────────────────────────────────────────────
+const allCmds = [
+  'cmm amfMultiLink list','cmm amfMultiLink show',
+  'cmm amfLinkAdmin show','cmm amfLinkAdmin modify',
+  'cmm amfGParms show','cmm amfGParms list','cmm amfGParms modify',
+  'cmm amfCapacityGParms show',
+  'cmm amfHttp2Ping list',
+  'cmm nbiPing list',
+  'cmm alarmActive list','cmm alarmActive show',
+  'cmm alarmHistory list',
+  'cmm alarmDefinition show',
+  'cmm alarmIgnore create',
+  'cmm plmn list','cmm plmn show',
+  'cmm tai list','cmm tai create','cmm tai delete',
+  'cmm allowedSnssai list',
+  'cmm rmtEndPtCfg list','cmm rmtEndPtCfg create','cmm rmtEndPtCfg show',
+  'cmm localEndPtCfg list','cmm localEndPtCfg create',
+  'cmm ueContext list','cmm ueContext show',
+  'cmm ueContextCount list',
+  'cmm gParms show',
+  'cmm clusterMgmt test.ping',
+  'cmm sbiConnectionTestUri list',
+  'cmm prometheusGW list',
+  'cmm firewallRule list',
+  'cmm counter show',
+  'cmm serviceIp list',
+  'cmm amfEplmn list',
+  'cmm amfEmergencyProfile list',
+  'cmm diamProfile list','cmm diamProfile create',
+  'cmm authenticate',
+  'sudo pcs status',
+  'help','tutorial','clear',
+];
+
+inp.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const v = inp.value;
+    history.unshift(v);
+    histIdx = -1;
+    inp.value = '';
+
+    // tutorial progression
+    if (tStep > 0 && tStep < tutorialSteps.length) {
+      if (tutorialSteps[tStep] && tutorialSteps[tStep].hint &&
+          v.trim().toLowerCase().startsWith(tutorialSteps[tStep].hint.toLowerCase().substring(0,20))) {
+        tStep++;
+        setTimeout(() => {
+          if (tStep < tutorialSteps.length) {
+            blank();
+            emit('─── Tutorial Hint ──────────────────────────────────────', 'dim');
+            emit(tutorialSteps[tStep].msg, 'bright');
+            blank();
+          }
+        }, 300);
+      }
+    } else if (tStep === 0 && v.trim().toLowerCase() === 'tutorial') {
+      tStep = 1;
+    }
+
+    dispatch(v);
+  }
+  else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    histIdx = Math.min(histIdx+1, history.length-1);
+    inp.value = history[histIdx] || '';
+  }
+  else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    histIdx = Math.max(histIdx-1, -1);
+    inp.value = histIdx < 0 ? '' : history[histIdx];
+  }
+  else if (e.key === 'Tab') {
+    e.preventDefault();
+    const v = inp.value;
+    const matches = allCmds.filter(c => c.startsWith(v));
+    if (matches.length === 1) { inp.value = matches[0] + ' '; }
+    else if (matches.length > 1) {
+      emit('[cmm@necc0 ~]$ ' + v, 'cmd');
+      emit(matches.join('  '), 'dim');
+    }
+  }
+  else if (e.key === 'l' && e.ctrlKey) {
+    e.preventDefault();
+    out.innerHTML = '';
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────
+function getArg(cmd, name) {
+  const re = new RegExp(name.replace(/[-]/g,'\\$&') + '\\s+([^\\s\'\"]+|\'[^\']*\'|\"[^\"]*\")', 'i');
+  const m = cmd.match(re);
+  return m ? m[1].replace(/['"]/g,'') : null;
+}
+
+function insertCmd(cmd) {
+  inp.value = cmd;
+  inp.focus();
+}
+
+// ─────────────────────────────────────────────────────────────
+// Boot
+// ─────────────────────────────────────────────────────────────
+boot();
+inp.focus();
+</script>
+</body>
+</html>
