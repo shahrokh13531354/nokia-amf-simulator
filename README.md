@@ -7,12 +7,12 @@ Nokia CMM AMF CLI Simulator
 ---
 Live Demo
 Launch Simulator
-(Replace with your GitHub Pages URL after publishing)
----
+https://shahrokh13531354.github.io/nokia-amf-simulator/nokia_amf_simulator_v4.html
+
 About
 This simulator replicates the Nokia CMM command-line interface used to manage the Access and Mobility Management Function (AMF) in a 5G Core network. It is designed as a hands-on practice environment for telecom engineers preparing for lab work, certification, or day-to-day operations on Nokia CMM24.3.
 It runs entirely in the browser — no server, no installation, no Nokia hardware required.
----
+
 Features
 Authentic CLI feel — matches the real `cmm <object> <action> [--param value]` syntax
 Tab autocomplete — press Tab to complete commands, just like the real NECC shell
