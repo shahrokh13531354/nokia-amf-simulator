@@ -1,0 +1,3471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nokia CMM AMF CLI Simulator — CMM24.3</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Share+Tech+Mono&display=swap');
+  :root {
+    --bg:#0a0e14; --bg2:#0d1117; --bg3:#141b24; --panel:#111820;
+    --border:#1e2d40; --nokia-blue:#005AFF; --cyan:#00d4ff;
+    --green:#00e676; --yellow:#ffd740; --red:#ff5252; --orange:#ff9100;
+    --dim:#4a6080; --muted:#6e8ca8; --text:#c8d8e8; --bright:#e8f4ff;
+    --prompt-clr:#00d4ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono','Share Tech Mono',monospace;font-size:13px;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+
+  .topbar{background:linear-gradient(90deg,#001833,#001040 50%,#001833);border-bottom:1px solid var(--nokia-blue);padding:6px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;box-shadow:0 0 20px rgba(0,90,255,0.3);}
+  .topbar-left{display:flex;align-items:center;gap:16px;}
+  .nokia-logo{font-size:16px;font-weight:700;color:var(--nokia-blue);letter-spacing:3px;text-shadow:0 0 10px rgba(0,90,255,0.8);}
+  .topbar-title{color:var(--muted);font-size:11px;letter-spacing:1px;}
+  .topbar-status{display:flex;gap:20px;font-size:11px;}
+  .status-item{display:flex;align-items:center;gap:6px;}
+  .dot{width:7px;height:7px;border-radius:50%;}
+  .dot.green{background:var(--green);box-shadow:0 0 6px var(--green);}
+  .dot.blue{background:var(--cyan);box-shadow:0 0 6px var(--cyan);}
+  .dot.yellow{background:var(--yellow);box-shadow:0 0 6px var(--yellow);}
+  .status-label{color:var(--muted);}
+  .status-val{color:var(--bright);}
+
+  .workspace{flex:1;display:flex;overflow:hidden;}
+
+  .sidebar{width:215px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;}
+  .sidebar-section{border-bottom:1px solid var(--border);}
+  .sidebar-hdr{padding:8px 12px;font-size:9px;letter-spacing:2px;color:var(--nokia-blue);background:rgba(0,90,255,0.06);text-transform:uppercase;}
+  .sidebar-item{padding:6px 12px 6px 16px;font-size:11px;color:var(--muted);cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:8px;border-left:2px solid transparent;}
+  .sidebar-item:hover{color:var(--cyan);background:rgba(0,212,255,0.05);border-left-color:var(--cyan);}
+  .sidebar-item .ico{font-size:10px;opacity:.7;}
+  .badge{margin-left:auto;background:rgba(255,82,82,0.2);color:var(--red);font-size:9px;padding:1px 5px;border-radius:3px;border:1px solid rgba(255,82,82,0.3);}
+  .badge.ok{background:rgba(0,230,118,0.12);color:var(--green);border-color:rgba(0,230,118,0.3);}
+
+  .terminal-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+  .term-tabs{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 12px;gap:2px;flex-shrink:0;}
+  .tab{padding:7px 16px;font-size:11px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;}
+  .tab.active{color:var(--cyan);border-bottom-color:var(--cyan);}
+  .tab-badge{background:rgba(0,212,255,0.15);color:var(--cyan);font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;}
+
+  .term-output{flex:1;overflow-y:auto;padding:12px 16px;background:var(--bg);scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+  .term-output::-webkit-scrollbar{width:4px;}
+  .term-output::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+  .line{line-height:1.7;white-space:pre-wrap;word-break:break-all;}
+  .line.cmd{color:var(--cyan);}
+  .line.info{color:var(--text);}
+  .line.ok{color:var(--green);}
+  .line.warn{color:var(--yellow);}
+  .line.err{color:var(--red);}
+  .line.dim{color:var(--dim);}
+  .line.hdr{color:var(--nokia-blue);font-weight:700;}
+  .line.orange{color:var(--orange);}
+  .line.bright{color:var(--bright);font-weight:500;}
+  .line.mdcli{color:#b0e0ff;font-family:'Share Tech Mono',monospace;}
+
+  .tbl-wrap{overflow-x:auto;margin:4px 0;}
+  table.sim-tbl{border-collapse:collapse;font-size:12px;min-width:100%;}
+  table.sim-tbl th{background:rgba(0,90,255,0.15);color:var(--cyan);padding:4px 12px;text-align:left;border:1px solid var(--border);font-weight:500;letter-spacing:.5px;}
+  table.sim-tbl td{padding:3px 12px;border:1px solid var(--border);color:var(--text);vertical-align:top;}
+  table.sim-tbl tr:nth-child(even) td{background:rgba(255,255,255,0.02);}
+  table.sim-tbl td.ok{color:var(--green);}
+  table.sim-tbl td.err{color:var(--red);}
+  table.sim-tbl td.warn{color:var(--yellow);}
+  table.sim-tbl td.dim{color:var(--dim);}
+  table.sim-tbl td.blue{color:var(--cyan);}
+  table.sim-tbl td.orange{color:var(--orange);}
+
+  .input-row{background:var(--bg2);border-top:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;}
+  .prompt-str{color:var(--prompt-clr);white-space:nowrap;font-size:13px;}
+  .term-input{flex:1;background:transparent;border:none;outline:none;color:var(--bright);font-family:'JetBrains Mono',monospace;font-size:13px;caret-color:var(--cyan);}
+  .term-input::placeholder{color:var(--dim);}
+
+  .right-panel{width:245px;background:var(--panel);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;}
+  .rp-section{border-bottom:1px solid var(--border);padding:10px 12px;}
+  .rp-hdr{font-size:9px;letter-spacing:2px;color:var(--nokia-blue);text-transform:uppercase;margin-bottom:8px;}
+  .kv-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;gap:8px;}
+  .kv-key{color:var(--muted);font-size:10px;flex-shrink:0;}
+  .kv-val{color:var(--bright);font-size:10px;text-align:right;}
+  .kv-val.ok{color:var(--green);}
+  .kv-val.warn{color:var(--yellow);}
+  .kv-val.err{color:var(--red);}
+  .qr-cmd{font-size:10px;color:var(--muted);padding:3px 6px;margin:2px 0;cursor:pointer;border-radius:3px;transition:all 0.1s;border:1px solid transparent;}
+  .qr-cmd:hover{background:rgba(0,212,255,0.08);color:var(--cyan);border-color:rgba(0,212,255,0.2);}
+  .qr-cmd span{color:var(--dim);}
+  .alarm-item{font-size:10px;padding:4px 6px;margin:2px 0;border-radius:3px;border-left:3px solid;background:rgba(255,255,255,0.02);}
+  .alarm-item.major{border-color:var(--orange);color:var(--orange);}
+  .alarm-item.minor{border-color:var(--yellow);color:var(--yellow);}
+  .alarm-id{font-size:9px;opacity:.6;}
+
+  .hint-bar{background:rgba(0,90,255,0.08);border-top:1px solid var(--border);padding:5px 16px;font-size:10px;color:var(--dim);flex-shrink:0;display:flex;gap:20px;flex-wrap:wrap;}
+  .hint-bar span{color:var(--muted);}
+
+  /* MD-CLI mode styling */
+  .mdcli-block{background:rgba(0,100,180,0.08);border-left:3px solid var(--nokia-blue);padding:4px 8px;margin:2px 0;font-family:'Share Tech Mono',monospace;font-size:12px;color:#b0e0ff;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="nokia-logo">NOKIA</div>
+    <div class="topbar-title">Cloud Mobility Manager · CMM24.3 · AMF CLI Simulator v4 + Integration & Troubleshooting MOP</div>
+  </div>
+  <div class="topbar-status">
+    <div class="status-item"><div class="dot green"></div><span class="status-label">NECC-0</span><span class="status-val">Active</span></div>
+    <div class="status-item"><div class="dot blue"></div><span class="status-label">NECC-1</span><span class="status-val">Standby</span></div>
+    <div class="status-item"><div class="dot yellow"></div><span class="status-label">Alarms</span><span class="status-val" id="alarm-count">2</span></div>
+    <div class="status-item"><div class="dot green"></div><span class="status-label">UEs</span><span class="status-val">1,247</span></div>
+  </div>
+</div>
+
+<div class="workspace">
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-hdr">AMF Core</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfInstance show')"><span class="ico">🏛</span>AMF Instance</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm aggregateService show')"><span class="ico">⚙</span>Aggregate Service</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfGParms list')"><span class="ico">📋</span>AMF Global Params</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfCapacityGParms show --amfGparmName amfRelativeCapacity')"><span class="ico">📊</span>AMF Capacity</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfCipheringAlgorithm show')"><span class="ico">🔐</span>Ciphering Algorithms</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfIntegrityAlgorithm show')"><span class="ico">🛡</span>Integrity Algorithms</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-hdr">Interfaces & Links</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfMultiLink list --amfIntfType N2')"><span class="ico">🔗</span>N2 Links (gNB)</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfMultiLink list --amfIntfType N11')"><span class="ico">🔗</span>N11 Links (SMF)</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfMultiLink list --amfIntfType N26')"><span class="ico">🔗</span>N26 Links (MME)</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfLinkAdmin show --amfLinkType N2')"><span class="ico">🔧</span>Link Admin State</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfConsumerLocalEndPointConfig show N11')"><span class="ico">🔌</span>SBI Consumer EPs</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfNotificationEndPointConfig list')"><span class="ico">🔔</span>Notification EPs</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfNgRanLocalEndPointConfig list')"><span class="ico">📡</span>NG-RAN Local EPs</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfN26LocalEndPointConfig show')"><span class="ico">🔄</span>N26 Local EP</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-hdr">Network & Slicing</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm plmn list')"><span class="ico">🌐</span>PLMN List</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfPlmn list')"><span class="ico">🌐</span>AMF PLMN</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm tai list')"><span class="ico">📍</span>TAI List</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm allowedSnssai list')"><span class="ico">🍕</span>Allowed SNSSAI</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm allowedSnssaiList list')"><span class="ico">📋</span>SNSSAI Lists</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfAdjacentPlmn list')"><span class="ico">🗺</span>Adjacent PLMNs</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfEplmn list')"><span class="ico">🔄</span>Equivalent PLMNs</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-hdr">UE & Subscribers</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm ueContext list')"><span class="ico">📱</span>UE Context List</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm ueContext show --imsi 302720100000001')"><span class="ico">📱</span>UE Context Show</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm ueContextCount list')"><span class="ico">🔢</span>UE Count</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm subscriber show --imsi 302720100000001')"><span class="ico">👤</span>Subscriber Show</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-hdr">Call Trace & PM</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm callTraceJob list')"><span class="ico">🔍</span>Call Trace Jobs</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm callTraceSetting show')"><span class="ico">⚙</span>Trace Settings</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm traceData list')"><span class="ico">📁</span>Trace Data</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm traceDataStatus list')"><span class="ico">📊</span>Trace Status</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm pmJob list')"><span class="ico">📈</span>PM Jobs</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm counter list --group m128')"><span class="ico">🔢</span>PM Counters</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm counterGroup definition list')"><span class="ico">📋</span>Counter Groups</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-hdr">IP & Routing</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm subnet list')"><span class="ico">🌐</span>Subnet List</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm serviceIp list')"><span class="ico">📡</span>Service IPs</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfServiceIp list')"><span class="ico">📡</span>AMF Service IPs</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm dfltGateway list')"><span class="ico">🚪</span>Default Gateways</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm staticRoute list')"><span class="ico">🛣</span>Static Routes</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm dns show')"><span class="ico">🔍</span>DNS Config</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm ntpUpdate show config')"><span class="ico">🕐</span>NTP Config</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-hdr">SBI & HTTP</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm httpProfile list')"><span class="ico">🌐</span>HTTP Profiles</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm httpProxy list')"><span class="ico">🔀</span>HTTP Proxies (SCP)</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm nfServiceInstance list')"><span class="ico">📦</span>NF Service Instances</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm sbiCommunicationProfile list')"><span class="ico">📡</span>SBI Comm Profiles</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-hdr">Diagnostics</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm alarmActive list')"><span class="ico">🔔</span>Active Alarms<span class="badge">2</span></div>
+      <div class="sidebar-item" onclick="insertCmd('cmm alarmHistory list')"><span class="ico">📜</span>Alarm History</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm nbiPing list --pingTarget 172.16.59.11 --pingSourceIp 172.16.46.201')"><span class="ico">📡</span>NBI Ping</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfHttp2Ping list --amfClientIntf N8 --amfRmtEndIp 172.16.59.71 --amfRmtEndIpPort 8080')"><span class="ico">🏓</span>HTTP2 Ping UDM</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm clusterMgmt test.ping --target \'*\'')"><span class="ico">🖧</span>Cluster Ping</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-hdr">🔧 MOP Integration</div>
+      <div class="sidebar-item" onclick="insertCmd('mop')"><span class="ico">📋</span>MOP Overview</div>
+      <div class="sidebar-item" onclick="insertCmd('mop phase 1')"><span class="ico">1️⃣</span>Phase 1: AMF Infra</div>
+      <div class="sidebar-item" onclick="insertCmd('mop phase 2')"><span class="ico">2️⃣</span>Phase 2: NRF Reg.</div>
+      <div class="sidebar-item" onclick="insertCmd('mop phase 3')"><span class="ico">3️⃣</span>Phase 3: SBI Config</div>
+      <div class="sidebar-item" onclick="insertCmd('mop phase 4')"><span class="ico">4️⃣</span>Phase 4: N2 / gNB</div>
+      <div class="sidebar-item" onclick="insertCmd('mop phase 5')"><span class="ico">5️⃣</span>Phase 5: OAM/SNMP</div>
+      <div class="sidebar-item" onclick="insertCmd('mop phase 6')"><span class="ico">6️⃣</span>Phase 6: Backup</div>
+      <div class="sidebar-item" onclick="insertCmd('mop phase 7')"><span class="ico">7️⃣</span>Phase 7: Call Trace</div>
+      <div class="sidebar-item" onclick="insertCmd('mop phase 8')"><span class="ico">✅</span>Phase 8: Verify</div>
+      <div class="sidebar-item" onclick="insertCmd('mop rollback')"><span class="ico">⏪</span>Rollback Procedure</div>
+      <div class="sidebar-item" onclick="insertCmd('mop tutorial')"><span class="ico">🎓</span>MOP Walkthrough</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-hdr">🩺 Troubleshooting</div>
+      <div class="sidebar-item" onclick="insertCmd('ts')"><span class="ico">📋</span>TS Quick Reference</div>
+      <div class="sidebar-item" onclick="insertCmd('sudo cmm_monitor')"><span class="ico">💚</span>cmm_monitor Health</div>
+      <div class="sidebar-item" onclick="insertCmd('sudo fns_monitor')"><span class="ico">💚</span>fns_monitor VM Check</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm systemInfo show')"><span class="ico">ℹ</span>systemInfo show</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm subscriber show --imsi 302720100000001 --radioType 5G')"><span class="ico">📱</span>Subscriber Show</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm subscriber count --amfRmState registered --radioType 5G')"><span class="ico">🔢</span>Subscriber Count</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm subscriber delete --imsi 302720100000001 --radioType 5G')"><span class="ico">⚠</span>Subscriber Delete</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm alarm active list')"><span class="ico">🔔</span>Alarm Active List</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm alarm active cancel 19')"><span class="ico">✖</span>Alarm Cancel</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm alarm definition list')"><span class="ico">📖</span>Alarm Definitions</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm alarm history list --period 1h')"><span class="ico">📜</span>Alarm History 1h</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfMultiLink list --alarmState major')"><span class="ico">🚨</span>Alarmed Links</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm nbiTraceroute list --traceTarget 172.16.59.11')"><span class="ico">🛤</span>NBI Traceroute</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm traceData create --imsi 302720100000001 --traceOrigin cli')"><span class="ico">🔍</span>Trace Create (IMSI)</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm traceDataStatus list')"><span class="ico">📊</span>Trace Status List</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm amfPcmdConfig show')"><span class="ico">📄</span>PCMD Config</div>
+      <div class="sidebar-item" onclick="insertCmd('cmm pcmdStreaming list')"><span class="ico">📡</span>PCMD Streaming</div>
+      <div class="sidebar-item" onclick="insertCmd('ts logs')"><span class="ico">📁</span>Log File Guide</div>
+      <div class="sidebar-item" onclick="insertCmd('ts debug')"><span class="ico">📦</span>Debug Bundle</div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-hdr">MD-CLI Mode</div>
+      <div class="sidebar-item" onclick="insertCmd('md-cli')"><span class="ico">💻</span>Enter MD-CLI</div>
+      <div class="sidebar-item" onclick="insertCmd('md-cli info /configure amf endpoint')"><span class="ico">📋</span>AMF Endpoint Info</div>
+      <div class="sidebar-item" onclick="insertCmd('md-cli info /configure amf profile am-policy')"><span class="ico">📋</span>AM Policy Profile</div>
+    </div>
+  </div>
+
+  <div class="terminal-wrap">
+    <div class="term-tabs">
+      <div class="tab active">● CMM CLI</div>
+      <div class="tab">  MD-CLI</div>
+      <div class="tab">  NETCONF<span class="tab-badge">new</span></div>
+    </div>
+    <div class="term-output" id="output"></div>
+    <div class="input-row">
+      <span class="prompt-str" id="prompt-str">[cmm@necc0 ~]$</span>
+      <input class="term-input" id="term-input" type="text" autocomplete="off" spellcheck="false" placeholder="Type a command or Tab for suggestions…"/>
+    </div>
+    <div class="hint-bar">
+      <span>Tab: autocomplete</span>
+      <span>↑↓: history</span>
+      <span>Ctrl+L: clear</span>
+      <span><b style="color:var(--cyan)">help</b> — all commands</span>
+      <span><b style="color:var(--cyan)">tutorial</b> — guided walkthrough</span>
+      <span><b style="color:var(--cyan)">md-cli</b> — MD-CLI mode</span>
+      <span><b style="color:var(--cyan)">mop</b> — integration MOP</span>
+    </div>
+  </div>
+
+  <div class="right-panel">
+    <div class="rp-section">
+      <div class="rp-hdr">AMF Node Identity</div>
+      <div class="kv-row"><span class="kv-key">PLMN</span><span class="kv-val">302-720</span></div>
+      <div class="kv-row"><span class="kv-key">AMF Region</span><span class="kv-val">01</span></div>
+      <div class="kv-row"><span class="kv-key">AMF Set</span><span class="kv-val">01</span></div>
+      <div class="kv-row"><span class="kv-key">AMF Pointer</span><span class="kv-val">0x01</span></div>
+      <div class="kv-row"><span class="kv-key">Rel. Capacity</span><span class="kv-val ok">128</span></div>
+      <div class="kv-row"><span class="kv-key">NRF Status</span><span class="kv-val ok">Registered</span></div>
+      <div class="kv-row"><span class="kv-key">Admin State</span><span class="kv-val ok">unlocked</span></div>
+    </div>
+    <div class="rp-section">
+      <div class="rp-hdr">Interface Health</div>
+      <div class="kv-row"><span class="kv-key">N2 (gNB)</span><span class="kv-val ok">9 UP</span></div>
+      <div class="kv-row"><span class="kv-key">N8 (UDM)</span><span class="kv-val ok">UP</span></div>
+      <div class="kv-row"><span class="kv-key">N11 (SMF)</span><span class="kv-val ok">UP</span></div>
+      <div class="kv-row"><span class="kv-key">N12 (AUSF)</span><span class="kv-val ok">UP</span></div>
+      <div class="kv-row"><span class="kv-key">N15 (PCF)</span><span class="kv-val ok">UP</span></div>
+      <div class="kv-row"><span class="kv-key">N22 (NSSF)</span><span class="kv-val ok">UP</span></div>
+      <div class="kv-row"><span class="kv-key">Nnrf</span><span class="kv-val ok">UP</span></div>
+      <div class="kv-row"><span class="kv-key">N26 (MME)</span><span class="kv-val warn">DEGRADED</span></div>
+    </div>
+    <div class="rp-section">
+      <div class="rp-hdr">Active Alarms</div>
+      <div class="alarm-item major"><div>amfMmeN26LinkDegraded</div><div class="alarm-id">#40122 · MAJOR · 14:32 UTC</div></div>
+      <div class="alarm-item minor"><div>pmCountersMissing</div><div class="alarm-id">#40918 · MINOR · 13:55 UTC</div></div>
+    </div>
+    <div class="rp-section">
+      <div class="rp-hdr">MOP Quick Run</div>
+      <div class="qr-cmd" onclick="insertCmd('mop')">📋 MOP Overview</div>
+      <div class="qr-cmd" onclick="insertCmd('mop tutorial')">🎓 MOP Tutorial</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm version')">cmm version</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm amfNrfStatus show')">amfNrfStatus show</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm amfNfProfile show')">amfNfProfile show</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm amfIntfSummary show --intf n2')">amfIntfSummary N2</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm amfLinkQueryDetail show --intf n2')">amfLinkQueryDetail</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm emsTrapNotification list')">emsTrapNotification</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm ntpStatus show')">ntpStatus show</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm backup list')">backup list</div>
+      <div class="qr-cmd" onclick="insertCmd('mop phase 8')">✅ Phase 8 Verify</div>
+      <div class="qr-cmd" onclick="insertCmd('mop rollback')">⏪ Rollback</div>
+    </div>
+    <div class="rp-section">
+      <div class="rp-hdr">Quick Commands</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm amfInstance show')">amfInstance show</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm aggregateService show')">aggregateService show</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm amfMultiLink list --amfIntfType N2')">amfMultiLink N2</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm amfNfDiscovery list --nfType UDM')">amfNfDiscovery UDM</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm callTraceJob create --userIdentity imsi --digits 302720100000001')">callTraceJob create</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm subscriber show --imsi 302720100000001')">subscriber show</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm alarmActive list')">alarmActive list</div>
+      <div class="qr-cmd" onclick="insertCmd('ts')">🩺 TS Quick Ref</div>
+      <div class="qr-cmd" onclick="insertCmd('sudo cmm_monitor')">cmm_monitor</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm alarm active list')">alarm active list</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm subscriber count')">subscriber count</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm amfPcmdConfig show')">amfPcmdConfig</div>
+      <div class="qr-cmd" onclick="insertCmd('cmm backup create --backupName AMF_Integration_$(date +%Y%m%d)')">backup create</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────
+let cmdHistory=[], histIdx=-1, mdCliMode=false;
+const out=document.getElementById('output');
+const inp=document.getElementById('term-input');
+const promptEl=document.getElementById('prompt-str');
+
+// ── Output helpers ─────────────────────────────────────────────
+function emit(html,cls='info'){
+  const d=document.createElement('div');
+  d.className='line '+cls;
+  d.innerHTML=html;
+  out.appendChild(d);
+  out.scrollTop=out.scrollHeight;
+}
+function emitTable(headers,rows){
+  const wrap=document.createElement('div');wrap.className='tbl-wrap';
+  const t=document.createElement('table');t.className='sim-tbl';
+  const thead=document.createElement('thead'),hrow=document.createElement('tr');
+  headers.forEach(h=>{const th=document.createElement('th');th.textContent=h;hrow.appendChild(th);});
+  thead.appendChild(hrow);t.appendChild(thead);
+  const tbody=document.createElement('tbody');
+  rows.forEach(row=>{
+    const tr=document.createElement('tr');
+    row.forEach(cell=>{
+      const td=document.createElement('td');
+      if(typeof cell==='object'&&cell!==null){td.textContent=cell.v;td.className=cell.c||'';}
+      else td.textContent=cell||'';
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  t.appendChild(tbody);wrap.appendChild(t);
+  out.appendChild(wrap);out.scrollTop=out.scrollHeight;
+}
+function blank(){emit('');}
+function getArg(cmd,name){
+  const re=new RegExp(name.replace(/[-]/g,'\\$&')+'\\s+([^\\s\'"]+|\'[^\']*\'|"[^"]*")', 'i');
+  const m=cmd.match(re);
+  return m?m[1].replace(/['"]/g,''):null;
+}
+
+// ── Main dispatcher ────────────────────────────────────────────
+function dispatch(raw){
+  const cmd=raw.trim();
+  if(!cmd)return;
+
+  if(mdCliMode){
+    emit('[MD-CLI] '+cmd,'mdcli');
+    dispatchMdCli(cmd);
+    return;
+  }
+
+  emit('[cmm@necc0 ~]$ '+cmd,'cmd');
+  const lower=cmd.toLowerCase();
+  const args=cmd.split(/\s+/);
+
+  if(lower==='clear'||lower==='cls'){out.innerHTML='';return;}
+  if(lower==='help'||lower==='cmm -h'||lower==='cmm --help'){showHelp();return;}
+  if(lower==='tutorial'){runTutorial();return;}
+  if(lower.startsWith('mop')){mopCmd(cmd);return;}
+  if(lower.startsWith('ts')){tsCmd(cmd);return;}
+  if(lower==='md-cli'||lower.startsWith('md-cli ')){enterMdCli(cmd);return;}
+  if(lower.startsWith('cmm ')){dispatchCmm(cmd,args.slice(1));return;}
+  if(lower==='sudo pcs status'){pcsStatus();return;}
+  if(lower.startsWith('sudo journalctl')||lower.startsWith('journalctl')){journalCtl(cmd);return;}
+  if(lower.startsWith('sudo cmm_monitor')||lower==='cmm_monitor'){cmmMonitor(cmd);return;}
+  if(lower.startsWith('sudo fns_monitor')||lower==='fns_monitor'){fnsMonitor(cmd);return;}
+  if(lower.startsWith('serf leave')){emit('serf leave executed. Node will gracefully leave and auto-rejoin cluster.','ok');return;}
+  if(lower.startsWith('tcpdump')){tcpdumpCmd(cmd);return;}
+  if(lower.startsWith('tail -f /var/log')||lower.startsWith('tail /var/log')){tailLog(cmd);return;}
+  if(lower.startsWith('grep ')){grepCmd(cmd);return;}
+  if(lower.startsWith('ls -la /data-pcmd')||lower.startsWith('ls -lah /data-pcmd')){lsPcmd(cmd);return;}
+  if(lower.startsWith('ls -la /data-logs')){lsDataLogs(cmd);return;}
+  if(lower.startsWith('zcat ')){zcatCmd(cmd);return;}
+  if(lower.startsWith('/usr/sbin/get_debug_info')){getDebugInfo(cmd);return;}
+  if(lower.startsWith('/opt/app/bin/cmmdBdump')||lower.startsWith('/opt/app/bin/cmmdbdump')){cmmDbDump(cmd);return;}
+  if(lower.startsWith('nslookup ')){nslookupCmd(cmd);return;}
+  if(lower.startsWith('sftp ')){sftpCmd(cmd);return;}
+  if(lower.startsWith('netstat ')){netstatCmd(cmd);return;}
+  if(lower==='ls'||lower==='ls -la'){lsCmd();return;}
+  emit('Command not found: '+args[0]+'. Type <span style="color:var(--cyan)">help</span> for commands.','err');
+}
+
+// ── CMM router ─────────────────────────────────────────────────
+function dispatchCmm(cmd,args){
+  const sub=(args[0]||'').toLowerCase();
+  switch(sub){
+    case 'authenticate':          doAuth();break;
+    // AMF Core
+    case 'amfinstance':           amfInstance(cmd,args);break;
+    case 'aggregateservice':      aggregateService(cmd,args);break;
+    case 'amfgparms':             amfGParms(cmd,args);break;
+    case 'amfcapacitygparms':     amfCapacityGParms(cmd,args);break;
+    case 'amflcsgparms':          amfLcsGParms(cmd,args);break;
+    case 'amfcipheringalgorithm': amfCipher(cmd,args);break;
+    case 'amfepscipher':
+    case 'amfepscipheringalgorithm': amfEpsCipher(cmd,args);break;
+    case 'amfintegrity':
+    case 'amfintegrityalgorithm': amfIntegrity(cmd,args);break;
+    case 'amfepsintegrity':
+    case 'amfepsintegrityalgorithm': amfEpsIntegrity(cmd,args);break;
+    // Links
+    case 'amfmultilink':          amfMultiLink(cmd,args);break;
+    case 'amflinkadmin':          amfLinkAdmin(cmd,args);break;
+    case 'amfconsumerlocalendpointconfig': amfConsumerEP(cmd,args);break;
+    case 'amfnotificationendpointconfig': amfNotifEP(cmd,args);break;
+    case 'amfngranlocalendpointconfig':   amfNgRanEP(cmd,args);break;
+    case 'amfn26localendpointconfig':     amfN26EP(cmd,args);break;
+    case 'amfservicesendpointconfig':     amfSvcEP(cmd,args);break;
+    // Network/Slicing
+    case 'plmn':                  plmnCmd(cmd,args);break;
+    case 'amfplmn':               amfPlmn(cmd,args);break;
+    case 'tai':                   taiCmd(cmd,args);break;
+    case 'allowedsnssai':         snssaiCmd(cmd,args);break;
+    case 'allowedsnssailist':     snssaiListCmd(cmd,args);break;
+    case 'allowedsnssailistitem': snssaiListItem(cmd,args);break;
+    case 'amfadjacentplmn':       adjPlmn(cmd,args);break;
+    case 'amfadjacentplmnlist':   adjPlmnList(cmd,args);break;
+    case 'amfeplmn':              amfEplmn(cmd,args);break;
+    case 'amfeplmnlist':          amfEplmnList(cmd,args);break;
+    case 'amfdnnoverrideprofile': dnnOverride(cmd,args);break;
+    case 'amfaliasdnnconversionprofile': aliasDnn(cmd,args);break;
+    case 'amfemergencyprofile':   emergencyProfile(cmd,args);break;
+    case 'amfemergencynum':       emergencyNum(cmd,args);break;
+    case 'amfemergencynumlist':   emergencyNumList(cmd,args);break;
+    // UE
+    case 'uecontext':             ueContext(cmd,args);break;
+    case 'uecontextcount':        ueCount(cmd,args);break;
+    case 'subscriber':            subscriberCmd(cmd,args);break;
+    // Call Trace
+    case 'calltracejob':          callTraceJob(cmd,args);break;
+    case 'calltracesetting':      callTraceSetting(cmd,args);break;
+    case 'tracedata':             traceData(cmd,args);break;
+    case 'tracedatastatus':       traceDataStatus(cmd,args);break;
+    // PM
+    case 'pmjob':                 pmJob(cmd,args);break;
+    case 'pmjobmeas':             pmJobMeas(cmd,args);break;
+    case 'pmjobsched':            pmJobSched(cmd,args);break;
+    case 'pmmeasgroupname':       pmMeasGroupName(cmd,args);break;
+    case 'counter':               counterCmd(cmd,args);break;
+    case 'countergroup':          counterGroup(cmd,args);break;
+    // IP/Routing
+    case 'subnet':                subnetCmd(cmd,args);break;
+    case 'serviceip':             serviceIp(cmd,args);break;
+    case 'amfserviceip':          amfServiceIp(cmd,args);break;
+    case 'dfltgateway':           dfltGateway(cmd,args);break;
+    case 'staticroute':           staticRoute(cmd,args);break;
+    case 'dns':                   dnsCmd(cmd,args);break;
+    case 'ntpupdate':             ntpCmd(cmd,args);break;
+    case 'ntpauthenticate':       ntpAuth(cmd,args);break;
+    case 'firewallrule':          firewallRule(cmd,args);break;
+    // SBI/HTTP
+    case 'httpprofile':           httpProfile(cmd,args);break;
+    case 'httpproxy':             httpProxy(cmd,args);break;
+    case 'nfserviceinstance':     nfSvcInstance(cmd,args);break;
+    case 'nfserviceslist':        nfSvcList(cmd,args);break;
+    case 'sbicommprofile':
+    case 'sbicommunicationprofile': sbiCommProfile(cmd,args);break;
+    case 'sbihttpproxysettingsprofile': sbiHttpProxy(cmd,args);break;
+    case 'amfnrfgparms':          amfNrfGParms(cmd,args);break;
+    // Legacy (from v1)
+    case 'gparms':                gParmsCmd(cmd,args);break;
+    case 'rmtendptcfg':           rmtEndPt(cmd,args);break;
+    case 'localendptcfg':         localEndPt(cmd,args);break;
+    case 'amfmultilink':          amfMultiLink(cmd,args);break;
+    case 'nbipping':              nbiPing(cmd,args);break;
+    case 'amfhttp2ping':          amfHttp2Ping(cmd,args);break;
+    case 'alarmactive':           alarmActive(cmd,args);break;
+    case 'alarmhistory':          alarmHistory(cmd,args);break;
+    case 'alarmdefinition':       alarmDef(cmd,args);break;
+    case 'alarmignore':           alarmIgnore(cmd,args);break;
+    case 'clustermgmt':           clusterMgmt(cmd,args);break;
+    case 'sbiconnectiontesturi':  sbiTest(cmd,args);break;
+    case 'prometheusgw':          prometheusGW(cmd,args);break;
+    case 'diamprofile':           diamProfile(cmd,args);break;
+    case 'hssgrp':                hssGrp(cmd,args);break;
+    case 'dcaeserver':            dcaeServer(cmd,args);break;
+    case 'fluentdtcpconfig':      fluentdCmd(cmd,args);break;
+    case 'defaultnotificationsubscription':
+    case 'defaultnotifications':  defaultNotif(cmd,args);break;
+    case 'personalize':           personalizeCmd(cmd,args);break;
+    // ── MOP-sourced commands ──
+    case 'amftai':                amfTaiCmd(cmd,args);break;
+    case 'dnsserver':             dnsServer(cmd,args);break;
+    case 'sbitimersprofile':      sbiTimersProfile(cmd,args);break;
+    case 'amfnrfstatus':          amfNrfStatus(cmd,args);break;
+    case 'amfnfprofile':          amfNfProfile(cmd,args);break;
+    case 'amfnrfsubscriptionstatus': amfNrfSubscriptionStatus(cmd,args);break;
+    case 'amfnfdiscovery':        amfNfDiscovery(cmd,args);break;
+    case 'amfsbiapIversion':
+    case 'amfsbiApiversion':      amfSbiApiVersion(cmd,args);break;
+    case 'amfnrfdiscoveryretry':  amfNrfDiscoveryRetry(cmd,args);break;
+    case 'scpconfig':             scpConfig(cmd,args);break;
+    case 'sbiloadcontrol':        sbiLoadControl(cmd,args);break;
+    case 'amfcapacity':           amfCapacityShow(cmd,args);break;
+    case 'amfintfsummary':        amfIntfSummary(cmd,args);break;
+    case 'amflinkquerydetail':    amfLinkQueryDetail(cmd,args);break;
+    case 'amfintfadmin':          amfIntfAdmin(cmd,args);break;
+    case 'amfmultilink':          amfMultiLinkCmd(cmd,args);break;
+    case 'emstrapnotification':   emsTrapNotification(cmd,args);break;
+    case 'syslogserver':          syslogServer(cmd,args);break;
+    case 'perfmeasjob':           perfMeasJob(cmd,args);break;
+    case 'ntpserver':             ntpServer(cmd,args);break;
+    case 'ntpstatus':             ntpStatus(cmd,args);break;
+    case 'backup':                backupCmd(cmd,args);break;
+    case 'backupschedule':        backupSchedule(cmd,args);break;
+    case 'utility':               utilityCmd(cmd,args);break;
+    case 'version':               cmmVersion(cmd,args);break;
+    // ── Troubleshooting commands ──
+    case 'systeminfo':            cmmSystemInfo(cmd,args);break;
+    case 'system':                cmmSystem(cmd,args);break;
+    case 'alarm':                 alarmCmd(cmd,args);break;
+    case 'alarmignore':           alarmIgnoreCmd(cmd,args);break;
+    case 'nbipinglist':
+    case 'nbipping':              nbiPing(cmd,args);break;
+    case 'nbitraceroute':         nbiTraceroute(cmd,args);break;
+    case 'amfpcmdconfig':         amfPcmdConfig(cmd,args);break;
+    case 'pcmdstreaming':         pcmdStreaming(cmd,args);break;
+    case 'tlscertificatelist':    tlsCertList(cmd,args);break;
+    case 'tlscertificate':        tlsCert(cmd,args);break;
+    default:
+      if(cmd.includes('--help')||cmd.includes(' -h')){showCmdHelp(sub);}
+      else{emit('Error: Unknown CMM object: '+sub+'. Type <span style="color:var(--cyan)">cmm -h</span> for help.','err');}
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AMF CORE
+// ═══════════════════════════════════════════════════════════════
+
+function doAuth(){
+  emit('Enter Username: john','dim');
+  emit('Enter Password:','dim');
+  emit('Authentication successful.','ok');
+}
+
+function amfInstance(cmd,args){
+  const action=(args[1]||'').toLowerCase();
+  if(action==='create'){
+    const plmn=getArg(cmd,'--servedPlmnName')||'HOME';
+    const reg=getArg(cmd,'--amfRegionId')||'1';
+    const set=getArg(cmd,'--amfSetId')||'1';
+    const ptr=getArg(cmd,'--amfPointer')||'1';
+    emit('amfInstance created: '+plmn+'~'+reg+'~'+set+'~'+ptr,'ok');return;
+  }
+  if(action==='modify'){
+    emit('amfInstance modified successfully.','ok');return;
+  }
+  emit('AMF Instance Configuration','hdr');blank();
+  emitTable(['Field','Value'],[
+    ['instanceName','302_720~1~1~1'],
+    ['servedPlmnName','302_720 (Bell Mobility)'],
+    ['amfRegionId',{v:'1',c:'ok'}],
+    ['amfSetId',{v:'1',c:'ok'}],
+    ['amfPointer',{v:'1',c:'ok'}],
+    ['allowedSnssaiListName','allowedSnssaiList1'],
+    ['scpDomainListName','default'],
+    ['restorationEndPtListName','LM192-list'],
+    ['nsiIdListName','ownNsiList'],
+    ['adminState',{v:'unlocked',c:'ok'}],
+    ['amfAdminState',{v:'unlocked',c:'ok'}],
+  ]);blank();
+}
+
+function aggregateService(cmd,args){
+  const action=(args[1]||'').toLowerCase();
+  if(action==='modify'){
+    const as=getArg(cmd,'--adminState');
+    const amfas=getArg(cmd,'--amfAdminState');
+    emit('aggregateService modified: adminState='+(as||'unchanged')+' amfAdminState='+(amfas||'unchanged'),'ok');
+    if(as==='locked'||amfas==='locked') emit('WARNING: Locking will stop all AMF services. Active UEs will be released.','warn');
+    return;
+  }
+  emit('aggregateService','hdr');blank();
+  emitTable(['Field','Value'],[
+    ['adminState',{v:'unlocked',c:'ok'}],
+    ['amfAdminState',{v:'unlocked',c:'ok'}],
+    ['operationalState',{v:'enabled',c:'ok'}],
+    ['serviceState',{v:'in-service',c:'ok'}],
+  ]);blank();
+}
+
+// AMF GParms DB
+const gParmsDB={
+  amfRelativeCapacity:{val:'128',desc:'Relative AMF Capacity (0-255) for gNB load balancing within AMF SET'},
+  autoAdjustCap:{val:'false',desc:'Auto-adjust capacity based on active CPPS count in n+k scheme'},
+  rrcInactive:{val:'true',desc:'RRC Inactive — AMF provides Core Network Assistance info to gNB'},
+  smsOverNas:{val:'true',desc:'SMS over NAS — enables delivery via NAS signalling (N20 to SMSF)'},
+  sharedPlmnSupport:{val:'false',desc:'Multiple Shared PLMN support (up to 8 PLMNs)'},
+  supportAusfUdmGroupId:{val:'true',desc:'Store GroupId from AUSF/UDM profile for subsequent selection'},
+  sbiHttp2PingKeepAlive:{val:'true',desc:'HTTP2 ping resets SBI link availability keep-alive'},
+  tappingActivated:{val:'false',desc:'AMF Tapping functionality on/off'},
+  rimInformationTransfer:{val:'false',desc:'NGAP RIM Information Transfer procedure support'},
+  sendMappedGummei:{val:'true',desc:'Send mapped GUAMI in NGAP Setup Response for 4G/5G coexistence'},
+  n26iwkSuppt:{val:'ENABLE',desc:'N26 interface interworking support between AMF and MME'},
+  directNasMsgTransfer:{val:'true',desc:'Direct NAS message transfer to gNB (NGAP)'},
+  epsTo5gsHoWithAmfReselect:{val:'false',desc:'EPS to 5GS handover with AMF reselect support'},
+  nssfNsSelectionLoadBalancing:{val:'true',desc:'NSSF Network Slice Selection load balancing'},
+  useNssfAvailabilityService:{val:'true',desc:'Use NSSF Availability Service for slice availability checks'},
+  useNssfSelectionServiceForAmf:{val:'true',desc:'Use NSSF Selection Service for AMF slice selection'},
+  useNssfSelectionServiceForSmf:{val:'false',desc:'Use NSSF Selection Service for SMF selection'},
+  support5gAnSliceInconsistencyAlarm:{val:'true',desc:'Raise alarm when gNBs report different slices for same TA'},
+  smContextStatusNotifyRequired:{val:'true',desc:'Wait for SMF SM Context Status Notify before deleting PDU session'},
+  udmImmediateReport:{val:'true',desc:'Immediate report indication to UDM'},
+};
+
+function amfGParms(cmd,args){
+  const name=getArg(cmd,'--amfGparmName');
+  const value=getArg(cmd,'--amfGparmValue');
+  if(cmd.toLowerCase().includes('list')){
+    emit('amfGParms — all parameters','hdr');blank();
+    emitTable(['amfGparmName','amfGparmValue','Description'],
+      Object.entries(gParmsDB).map(([k,v])=>[k,{v:v.val,c:'ok'},v.desc]));
+    blank();return;
+  }
+  if(cmd.toLowerCase().includes('modify')&&name&&value){
+    if(gParmsDB[name]){gParmsDB[name].val=value;emit('amfGParms modified: '+name+' = '+value,'ok');}
+    else emit('Error: Unknown parameter: '+name,'err');
+    return;
+  }
+  if(name){
+    const p=gParmsDB[name];
+    if(!p){emit('Error: Unknown amfGparmName: '+name,'err');return;}
+    emit('amfGParms · '+name,'hdr');blank();
+    emitTable(['Field','Value'],[['amfGparmName',name],['amfGparmValue',{v:p.val,c:'ok'}],['Description',p.desc]]);
+    blank();return;
+  }
+  emit('Syntax: cmm amfGParms show --amfGparmName <n> | list | modify --amfGparmName <n> --amfGparmValue <v>','warn');
+}
+
+function amfCapacityGParms(cmd,args){
+  emit('amfCapacityGParms','hdr');blank();
+  emitTable(['amfGparmName','amfGparmValue','Description'],[
+    ['amfRelativeCapacity',{v:'128',c:'ok'},'Relative AMF Capacity (0-255) for gNB load balancing within AMF SET'],
+    ['autoAdjustCap',{v:'false',c:'dim'},'Auto-adjust capacity based on active CPPS count'],
+    ['numProtCpps',{v:'2',c:'ok'},'Number of protection CPPS (k in n+k sparing)'],
+    ['relativeCapacityCpps',{v:'16',c:'ok'},'Capacity contribution per CPPS'],
+    ['relativeCapacityIPDS0',{v:'64',c:'ok'},'Relative Capacity for IPDS Pool 0'],
+    ['relativeCapacityIPDSAdditional',{v:'32',c:'ok'},'Capacity per additional IPDS Pool'],
+    ['maxTrackingAreaRelativeCapacity',{v:'false',c:'dim'},'Use max TA relative capacity in NG Setup Response'],
+    ['trackingAreaRelativeCapacity',{v:'128',c:'ok'},'AMF relative capacity per tracking area'],
+  ]);blank();
+}
+
+function amfLcsGParms(cmd,args){
+  const name=getArg(cmd,'--amfGparmName');
+  const value=getArg(cmd,'--amfGparmValue');
+  const lcsDB={
+    activateLcs:{val:'true',desc:'Activate Location Services (LCS) feature'},
+    activateLcsClientEmergencyServices:{val:'true',desc:'Enable LCS for emergency services clients'},
+    activateLcsClientVasService:{val:'false',desc:'Enable LCS for Value Added Services clients'},
+    emerMtLrNoLmf:{val:'true',desc:'Emergency MT-LR when no LMF available'},
+    lcsRetrieveCurrentCellInfo:{val:'true',desc:'Retrieve current cell info for LCS'},
+    maxNrCgiAgeEmerMtLrNoLmf:{val:'0',desc:'Max age of NR CGI for emergency MT-LR without LMF'},
+  };
+  if(cmd.toLowerCase().includes('modify')&&name&&value){
+    emit('amfLcsGParms modified: '+name+' = '+value,'ok');return;
+  }
+  emit('amfLcsGParms (Location Services)','hdr');blank();
+  emitTable(['amfGparmName','amfGparmValue','Description'],
+    Object.entries(lcsDB).map(([k,v])=>[k,{v:v.val,c:'ok'},v.desc]));
+  blank();
+}
+
+function amfCipher(cmd,args){
+  if(cmd.toLowerCase().includes('modify')){
+    const p1=getArg(cmd,'--cipheringAlgPrio1');
+    emit('amfCipheringAlgorithm modified: prio1='+p1,'ok');return;
+  }
+  emit('AMF Ciphering Algorithm Priorities','hdr');blank();
+  emitTable(['Priority','Algorithm','Description'],[
+    ['prio1',{v:'nea1',c:'ok'},'Snow3G'],
+    ['prio2',{v:'nea2',c:'ok'},'AES (128-bit)'],
+    ['prio3',{v:'nea0',c:'dim'},'No ciphering'],
+  ]);blank();
+  emit('Note: cmm amfCipheringAlgorithm modify --cipheringAlgPrio1 {nea0,nea1,nea2,nea3}','dim');
+}
+
+function amfEpsCipher(cmd,args){
+  if(cmd.toLowerCase().includes('modify')){emit('amfEpsCipheringAlgorithm modified.','ok');return;}
+  emit('AMF EPS Ciphering Algorithm Priorities (for N26/EPS interworking)','hdr');blank();
+  emitTable(['Priority','Algorithm'],[['prio1',{v:'eea1',c:'ok'}],['prio2',{v:'eea2',c:'ok'}],['prio3',{v:'zuc',c:'dim'}]]);blank();
+}
+
+function amfIntegrity(cmd,args){
+  if(cmd.toLowerCase().includes('modify')){
+    const p1=getArg(cmd,'--integrityAlgPrio1');
+    emit('amfIntegrityAlgorithm modified: prio1='+p1,'ok');return;
+  }
+  emit('AMF Integrity Algorithm Priorities','hdr');blank();
+  emitTable(['Priority','Algorithm','Description'],[
+    ['prio1',{v:'nia1',c:'ok'},'Snow3G'],
+    ['prio2',{v:'nia2',c:'ok'},'AES CMAC'],
+    ['prio3',{v:'nia3',c:'dim'},'ZUC'],
+  ]);blank();
+}
+
+function amfEpsIntegrity(cmd,args){
+  if(cmd.toLowerCase().includes('modify')){emit('amfEpsIntegrityAlgorithm modified.','ok');return;}
+  emit('AMF EPS Integrity Algorithm Priorities','hdr');blank();
+  emitTable(['Priority','Algorithm'],[['prio1',{v:'eia1',c:'ok'}],['prio2',{v:'eia2',c:'ok'}],['prio3',{v:'zuc',c:'dim'}]]);blank();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INTERFACES & ENDPOINTS
+// ═══════════════════════════════════════════════════════════════
+
+function amfMultiLink(cmd,args){
+  const intfType=getArg(cmd,'--amfIntfType');
+  if(cmd.toLowerCase().includes('show')){
+    const idx=getArg(cmd,'--linkIndex')||'1';
+    emit('amfMultiLink show · '+(intfType||'N2')+' index '+idx,'hdr');blank();
+    emitTable(['Field','Value'],[
+      ['amfIntfType',intfType||'N2'],['amfLinkType','N2'],['linkIndex',idx],
+      ['amfLinkAdminState',{v:'unlocked',c:'ok'}],['linkOperationState',{v:'enabled',c:'ok'}],
+      ['alarmState',{v:'none',c:'ok'}],['remoteIp1','172.16.59.1'+idx],['localIp1','172.16.46.201'],
+      ['localPort1','36412'],['remotePort1','36412'],
+    ]);blank();return;
+  }
+  const hdr=['amfMultiLink','amfIntfType','amfLinkType','linkIndex','amfLinkAdminState','linkOperationState','alarmState','remoteIp1','remoteIp2'];
+  const n2=[[{v:'N2',c:'blue'},'N2','N2','1',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.11','0.0.0.0'],
+            [{v:'N2',c:'blue'},'N2','N2','2',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.12','0.0.0.0'],
+            [{v:'N2',c:'blue'},'N2','N2','3',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.13','0.0.0.0'],
+            [{v:'N2',c:'blue'},'N2','N2','4',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.14','0.0.0.0'],
+            [{v:'N2',c:'blue'},'N2','N2','5',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.15','0.0.0.0'],
+            [{v:'N2',c:'blue'},'N2','N2','6',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.16','0.0.0.0'],
+            [{v:'N2',c:'blue'},'N2','N2','7',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.17','0.0.0.0'],
+            [{v:'N2',c:'blue'},'N2','N2','8',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.18','0.0.0.0'],
+            [{v:'N2',c:'blue'},'N2','N2','9',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.19','0.0.0.0']];
+  const n11=[[{v:'N11',c:'blue'},'N11','SBI_Client','1',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.51','0.0.0.0'],
+             [{v:'N11',c:'blue'},'N11','SBI_Client','2',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.52','0.0.0.0']];
+  const n26=[[{v:'N26',c:'blue'},'N26','N26','1',{v:'unlocked',c:'ok'},{v:'disabled',c:'warn'},{v:'major',c:'err'},'172.16.59.91','0.0.0.0']];
+  const n8= [[{v:'N8',c:'blue'},'N8','SBI_Client','1',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.71','0.0.0.0']];
+  const n12=[[{v:'N12',c:'blue'},'N12','SBI_Client','1',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.61','0.0.0.0']];
+  const n22=[[{v:'N22',c:'blue'},'N22','SBI_Client','1',{v:'unlocked',c:'ok'},{v:'enabled',c:'ok'},{v:'none',c:'ok'},'172.16.59.81','0.0.0.0']];
+  if(!intfType||intfType==='N2') emitTable(hdr,n2);
+  if(!intfType||intfType==='N11') emitTable(hdr,n11);
+  if(!intfType||intfType==='N26') emitTable(hdr,n26);
+  if(!intfType||intfType==='N8')  emitTable(hdr,n8);
+  if(!intfType||intfType==='N12') emitTable(hdr,n12);
+  if(!intfType||intfType==='N22') emitTable(hdr,n22);
+  blank();
+}
+
+function amfLinkAdmin(cmd,args){
+  if(cmd.toLowerCase().includes('modify')){
+    const s=getArg(cmd,'--amfLinkAdminState');
+    if(!s){emit('Error: --amfLinkAdminState required. Values: {blocked,locked,unlocked}','err');return;}
+    emit('amfLinkAdmin modify: state → '+s,'ok');emit('Operation successful.','ok');return;
+  }
+  const lt=getArg(cmd,'--amfLinkType')||'N2';
+  const li=getArg(cmd,'--linkIndex');
+  emit('amfLinkAdmin · '+lt,'hdr');blank();
+  const rows=[];
+  const cnt=lt==='N2'?9:lt==='N26'?1:2;
+  for(let i=1;i<=cnt;i++){
+    if(li&&li!=i)continue;
+    const bad=lt==='N26';
+    rows.push([lt,i,{v:'unlocked',c:'ok'},{v:bad?'disabled':'enabled',c:bad?'warn':'ok'},{v:bad?'major':'none',c:bad?'err':'ok'},'172.16.59.'+(lt==='N2'?10+i:lt==='N26'?91:50+i)]);
+  }
+  emitTable(['amfLinkType','linkIndex','amfLinkAdminState','linkOperationState','alarmState','remoteIp1'],rows);blank();
+}
+
+function amfConsumerEP(cmd,args){
+  const ep=getArg(cmd,'--endPointName')||(args[2]||'N11');
+  if(cmd.toLowerCase().includes('create')){emit('amfConsumerLocalEndPointConfig created: '+ep,'ok');return;}
+  if(cmd.toLowerCase().includes('list')){
+    emit('SBI Consumer Local Endpoint Config','hdr');blank();
+    emitTable(['endPointName','sbiEndpointType','amfServiceIpName','httpProfileName'],[
+      ['N8','UDM','SBI','clientHttpProf'],['N11','SMF','SBI','clientHttpProf'],
+      ['N12','AUSF','SBI','clientHttpProf'],['N14','AMF','SBI','clientHttpProf'],
+      ['N15','PCF','SBI','clientHttpProf'],['N17','5G-EIR','SBI','clientHttpProf'],
+      ['N22','NSSF','SBI','clientHttpProf'],['Nnrf','NRF','Nnrf','clientHttpProf'],
+      ['NLg','GMLC','SBI','clientHttpProf'],['NLs','LMF','SBI','clientHttpProf'],
+    ]);blank();return;
+  }
+  emit('amfConsumerLocalEndPointConfig · '+ep,'hdr');blank();
+  emitTable(['Field','Value'],[
+    ['endPointName',ep],['sbiEndpointType',ep==='Nnrf'?'NRF':'SBI'],
+    ['amfServiceIpName','SBI'],['httpProfileName','clientHttpProf'],
+    ['operState',{v:'enabled',c:'ok'}],
+  ]);blank();
+}
+
+function amfNotifEP(cmd,args){
+  if(cmd.toLowerCase().includes('create')){
+    const ep=getArg(cmd,'--endPointName');
+    const nft=getArg(cmd,'--nfType');
+    emit('amfNotificationEndPointConfig created: '+ep+' nfType='+nft,'ok');return;
+  }
+  emit('Notification Endpoint Configuration','hdr');blank();
+  emitTable(['endPointName','nfType','amfServiceIpName','dscpCode','httpProfileName'],[
+    ['NFY_SMF','SMF','NfySMF','AF11','serverHttpProf'],['NFY_UDM','UDM','NfyUDM','AF11','serverHttpProf'],
+    ['NFY_AMF','AMF','NfyAMF','AF11','serverHttpProf'],['NFY_NRF','NRF','NfyNRF','AF11','serverHttpProf'],
+    ['NFY_NSSF','NSSF','NfyNSSF','AF11','serverHttpProf'],['NFY_PCF','PCF','NfyPCF','AF11','serverHttpProf'],
+  ]);blank();
+}
+
+function amfNgRanEP(cmd,args){
+  if(cmd.toLowerCase().includes('create')){
+    const ep=getArg(cmd,'--endPointName');
+    emit('amfNgRanLocalEndPointConfig created: '+ep,'ok');return;
+  }
+  emit('NG-RAN Local Endpoint Configuration','hdr');blank();
+  emitTable(['endPointName','interfaceType','amfServiceIpName','operState'],[
+    ['AMF_5G_RAN','N2','N2',{v:'enabled',c:'ok'}],
+    ['5G_RAN_2','N2','N2_secondary',{v:'enabled',c:'ok'}],
+  ]);blank();
+}
+
+function amfN26EP(cmd,args){
+  if(cmd.toLowerCase().includes('create')){emit('amfN26LocalEndPointConfig created: N26','ok');return;}
+  emit('N26 Local Endpoint Configuration','hdr');blank();
+  emitTable(['Field','Value'],[
+    ['endPointName','N26'],['amfServiceIpName','N26'],
+    ['localIp1','172.16.46.203'],['operState',{v:'degraded',c:'warn'}],
+  ]);blank();
+}
+
+function amfSvcEP(cmd,args){
+  if(cmd.toLowerCase().includes('create')){emit('amfServicesEndPointConfig created.','ok');return;}
+  emit('AMF Services Endpoint Config','hdr');blank();
+  emitTable(['endPointName','amfServiceInstanceName','amfServiceIpName','dscpCode'],[
+    ['AMF_Com_0','Namf_Communication_0','SBI','CS4'],
+    ['AMF_Com_1','Namf_Communication_1','SBI_1','AF11'],
+    ['AMF_EventExp_0','Namf_EventExposure_0','SBI','CS4'],
+    ['AMF_Loc_0','Namf_Location_0','SBI','CS4'],
+  ]);blank();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NETWORK & SLICING
+// ═══════════════════════════════════════════════════════════════
+
+function plmnCmd(cmd,args){
+  if(cmd.toLowerCase().includes('show')){
+    const n=getArg(cmd,'--plmnName')||'302_720';
+    emit('plmn · '+n,'hdr');blank();
+    emitTable(['Field','Value'],[['plmnName',n],['mcc','302'],['mnc','720'],['description','Bell Mobility (Home PLMN)'],['plmnType','home'],['nrfSupport',{v:'true',c:'ok'}]]);
+    blank();return;
+  }
+  emit('PLMN List','hdr');blank();
+  emitTable(['plmnName','mcc','mnc','description','plmnType'],[
+    ['302_720','302','720','Bell Mobility','home'],['302_610','302','610','Bell (Roaming A)','visitor'],
+    ['302_220','302','220','Telus Mobility','visitor'],['302_490','302','490','Freedom Mobile','visitor'],
+  ]);blank();
+}
+
+function amfPlmn(cmd,args){
+  if(cmd.toLowerCase().includes('create')){
+    const n=getArg(cmd,'--name');const mcc=getArg(cmd,'--mcc');const mnc=getArg(cmd,'--mnc');const t=getArg(cmd,'--plmnType');
+    emit('amfPlmn created: name='+n+' MCC='+mcc+' MNC='+mnc+' type='+t,'ok');return;
+  }
+  emit('AMF PLMN Configuration','hdr');blank();
+  emitTable(['name','mcc','mnc','plmnType','nrfDomain'],[
+    ['HOME','302','720','Home PLMN','nokia.amf.5gc.ca'],
+    ['PLMNB','463','222','Shared Network','shared.5gc.net'],
+    ['PLMNC','464','222','Shared Network','shared2.5gc.net'],
+    ['ROAMINGPLMN','310','012','Visitor','visitor.5gc.net'],
+  ]);blank();
+}
+
+function taiCmd(cmd,args){
+  if(cmd.toLowerCase().includes('create')){
+    const plmn=getArg(cmd,'--plmnName');const tac=getArg(cmd,'--tac');
+    if(!plmn||!tac){emit('Syntax: cmm tai create --plmnName <n> --tac <tac>','err');return;}
+    emit('TAI created: plmnName='+plmn+' tac='+tac,'ok');return;
+  }
+  if(cmd.toLowerCase().includes('delete')){emit('TAI deleted.','ok');return;}
+  emit('TAI List','hdr');blank();
+  emitTable(['plmnName','tac','description'],[
+    ['302_720','1001','Toronto Downtown'],['302_720','1002','Toronto East'],
+    ['302_720','1003','Toronto West'],['302_720','2001','Vancouver Core'],
+    ['302_720','2002','Vancouver Metro'],['302_720','3001','Montreal'],
+    ['302_720','4001','Calgary'],['302_720','5001','Ottawa'],
+  ]);blank();
+}
+
+function snssaiCmd(cmd,args){
+  if(cmd.toLowerCase().includes('create')){
+    const n=getArg(cmd,'--name');const sst=getArg(cmd,'--sliceServiceType');const sd=getArg(cmd,'--sliceDifferentiator');
+    emit('allowedSnssai created: name='+n+' SST='+sst+' SD='+sd,'ok');return;
+  }
+  emit('Allowed S-NSSAI (Network Slices)','hdr');blank();
+  emitTable(['name','sliceServiceType','sliceDifferentiator','description','status'],[
+    ['allowMBB','1',{v:'D143A5',c:'blue'},'eMBB Default',{v:'active',c:'ok'}],
+    ['allowURLLC','2',{v:'FFFFFF',c:'blue'},'URLLC',{v:'active',c:'ok'}],
+    ['allowMIOT','3',{v:'FFFFFF',c:'blue'},'mMTC/MIoT',{v:'active',c:'ok'}],
+    ['allowV2X','4',{v:'000001',c:'blue'},'V2X',{v:'inactive',c:'dim'}],
+  ]);blank();
+}
+
+function snssaiListCmd(cmd,args){
+  if(cmd.toLowerCase().includes('create')){emit('allowedSnssaiList created: '+getArg(cmd,'--name'),'ok');return;}
+  emit('Allowed SNSSAI Lists','hdr');blank();
+  emitTable(['name','items'],[
+    ['allowedSnssaiList1','allowMBB, allowURLLC'],
+    ['allowedSnssaiList2','allowMIOT'],
+    ['allowedSnssaiList_all','allowMBB, allowURLLC, allowMIOT'],
+  ]);blank();
+}
+
+function snssaiListItem(cmd,args){
+  if(cmd.toLowerCase().includes('create')){
+    const lst=getArg(cmd,'--allowedSnssaiListName');const item=getArg(cmd,'--allowedSnssaiName');
+    emit('allowedSnssaiListItem created: list='+lst+' item='+item,'ok');return;
+  }
+  emit('allowedSnssaiListItem list','hdr');blank();
+  emitTable(['allowedSnssaiListName','allowedSnssaiName'],[
+    ['allowedSnssaiList1','allowMBB'],['allowedSnssaiList1','allowURLLC'],
+    ['allowedSnssaiList2','allowMIOT'],
+  ]);blank();
+}
+
+function adjPlmn(cmd,args){
+  if(cmd.toLowerCase().includes('create')){
+    emit('amfAdjacentPlmn created: list='+getArg(cmd,'--amfAdjacentPlmnListName')+' plmn='+getArg(cmd,'--amfAdjacentPlmnName'),'ok');return;
+  }
+  emit('Adjacent PLMN List','hdr');blank();
+  emitTable(['amfAdjacentPlmnListName','amfAdjacentPlmnName'],[
+    ['myAdjPlmnList','PLMNB'],['myAdjPlmnListRoamer','PLMNC'],
+  ]);blank();
+}
+
+function adjPlmnList(cmd,args){
+  if(cmd.toLowerCase().includes('create')){emit('amfAdjacentPlmnList created: '+getArg(cmd,'--name'),'ok');return;}
+  emit('Adjacent PLMN Lists','hdr');blank();
+  emitTable(['name'],[['myAdjPlmnList'],['myAdjPlmnListRoamer']]);blank();
+}
+
+function amfEplmn(cmd,args){
+  if(cmd.toLowerCase().includes('create')){
+    emit('amfEplmn created: list='+getArg(cmd,'--amfEplmnListName')+' equiv='+getArg(cmd,'--amfEquivalentPlmnName'),'ok');return;
+  }
+  emit('Equivalent PLMN List','hdr');blank();
+  emitTable(['amfEplmnListName','amfEquivalentPlmnName'],[
+    ['myEplmnList','302_610'],['myEplmnList','302_630'],['myEplmnListRoamer','PLMNC'],
+  ]);blank();
+}
+
+function amfEplmnList(cmd,args){
+  if(cmd.toLowerCase().includes('create')){emit('amfEplmnList created: '+getArg(cmd,'--name'),'ok');return;}
+  emit('Equivalent PLMN Lists','hdr');blank();
+  emitTable(['name'],[['myEplmnList'],['myEplmnListRoamer']]);blank();
+}
+
+function dnnOverride(cmd,args){
+  if(cmd.toLowerCase().includes('create')){emit('amfDnnOverrideProfile created: '+getArg(cmd,'--name'),'ok');return;}
+  emit('DNN Override Profiles','hdr');blank();
+  emitTable(['name','defaultOverrideDnn','status'],[
+    ['dnnProfile1','internet.bell.ca',{v:'active',c:'ok'}],
+    ['dnnProfile_ims','ims.bell.ca',{v:'active',c:'ok'}],
+  ]);blank();
+}
+
+function aliasDnn(cmd,args){
+  if(cmd.toLowerCase().includes('create')){emit('amfAliasDnnConversionProfile created: '+getArg(cmd,'--name'),'ok');return;}
+  emit('Alias DNN Conversion Profiles','hdr');blank();
+  emitTable(['name','aliasConversionDnnSupport','aliasDefaultConversionDnn'],[
+    ['dnnConversionProfile',{v:'true',c:'ok'},'test1.nokia.com'],
+  ]);blank();
+}
+
+function emergencyProfile(cmd,args){
+  if(cmd.toLowerCase().includes('create')){
+    const n=getArg(cmd,'--name');
+    emit('amfEmergencyProfile created: '+n,'ok');return;
+  }
+  if(cmd.toLowerCase().includes('modify')){emit('amfEmergencyProfile modified.','ok');return;}
+  emit('AMF Emergency Profile','hdr');blank();
+  emitTable(['name','emergencyDNN','sliceServiceType','priorityLevel','ambrDl','ambrUl'],[
+    ['default','emergency','1','1','4294967295','4294967295'],
+    ['nokiaEmergProfile','sos','3','1','4294967295','4294967295'],
+  ]);blank();
+}
+
+function emergencyNum(cmd,args){
+  if(cmd.toLowerCase().includes('create')){emit('amfEmergencyNum created in list: '+getArg(cmd,'--amfEmergencyNumListName'),'ok');return;}
+  emit('Emergency Numbers','hdr');blank();
+  emitTable(['amfEmergencyNumListName','number','category'],[
+    ['emerg911numbers','911','Police/Fire/Medical'],
+    ['emerg911numbers','112','International Emergency'],
+    ['emerg911numbers','*911','Cell-specific'],
+  ]);blank();
+}
+
+function emergencyNumList(cmd,args){
+  if(cmd.toLowerCase().includes('create')){emit('amfEmergencyNumList created: '+getArg(cmd,'--name'),'ok');return;}
+  emit('Emergency Number Lists','hdr');blank();
+  emitTable(['name'],[['emerg911numbers']]);blank();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UE & SUBSCRIBERS
+// ═══════════════════════════════════════════════════════════════
+
+function ueContext(cmd,args){
+  const imsi=getArg(cmd,'--imsi');const guti=getArg(cmd,'--guti');
+  if(cmd.toLowerCase().includes('show')&&(imsi||guti)){
+    emit('UE Context · '+(imsi?'IMSI:'+imsi:'GUTI:'+guti),'hdr');blank();
+    emitTable(['Field','Value'],[
+      ['imsi',imsi||'302720100000001'],['guti','302720010101AABB01'],
+      ['regState',{v:'registered',c:'ok'}],['cmState',{v:'connected',c:'ok'}],
+      ['rmState',{v:'registered',c:'ok'}],['plmn','302-720'],
+      ['tai','302720:1001'],['cellId','0x100A'],['gnbId','172.16.59.11'],
+      ['pduSessions','2'],['snssai-1','SST=1 SD=D143A5 (eMBB)'],['snssai-2','SST=2 SD=FFFFFF (URLLC)'],
+      ['ueSecCap','5G-EA1, 5G-IA1'],['lastActivity','2024-11-14T14:45:00Z'],
+    ]);blank();return;
+  }
+  if(cmd.toLowerCase().includes('list')){
+    emit('UE Context List (showing 10 of 1,247)','hdr');blank();
+    emitTable(['imsi','regState','cmState','tai','gnbId','pduSessions'],[
+      ['302720100000001',{v:'registered',c:'ok'},{v:'connected',c:'ok'},'302720:1001','172.16.59.11','2'],
+      ['302720100000002',{v:'registered',c:'ok'},{v:'idle',c:'dim'},'302720:1002','172.16.59.12','1'],
+      ['302720100000003',{v:'registered',c:'ok'},{v:'connected',c:'ok'},'302720:1001','172.16.59.11','3'],
+      ['302720100000004',{v:'registered',c:'ok'},{v:'connected',c:'ok'},'302720:2001','172.16.59.13','1'],
+      ['302720100000005',{v:'registered',c:'ok'},{v:'idle',c:'dim'},'302720:3001','172.16.59.14','1'],
+      ['302720100000006',{v:'deregistered',c:'warn'},{v:'idle',c:'dim'},'302720:1003','172.16.59.15','0'],
+      ['302720100000007',{v:'registered',c:'ok'},{v:'connected',c:'ok'},'302720:4001','172.16.59.16','2'],
+      ['302720100000008',{v:'registered',c:'ok'},{v:'connected',c:'ok'},'302720:1001','172.16.59.11','1'],
+      ['302720100000009',{v:'registered',c:'ok'},{v:'idle',c:'dim'},'302720:2002','172.16.59.17','1'],
+      ['302720100000010',{v:'registered',c:'ok'},{v:'connected',c:'ok'},'302720:5001','172.16.59.18','2'],
+    ]);blank();
+    emit('Tip: cmm ueContext show --imsi <imsi> for full details','dim');return;
+  }
+  emit('Syntax: cmm ueContext list | show --imsi <imsi>','warn');
+}
+
+function ueCount(cmd,args){
+  emit('UE Context Count','hdr');blank();
+  emitTable(['State','Count'],[
+    ['Total registered',{v:'1247',c:'ok'}],['CM-Connected',{v:'834',c:'ok'}],
+    ['CM-Idle',{v:'413',c:'dim'}],['Deregistered (pending)',{v:'12',c:'warn'}],['Emergency',{v:'0',c:'dim'}],
+  ]);blank();
+}
+
+function subscriberCmd(cmd,args){
+  const imsi=getArg(cmd,'--imsi')||'302720100000001';
+  emit('Subscriber Data · IMSI: '+imsi,'hdr');blank();
+  emitTable(['Field','Value'],[
+    ['imsi',imsi],['msisdn','16471234567'],
+    ['subscribedAmbr_dl','100 Mbps'],['subscribedAmbr_ul','50 Mbps'],
+    ['subscribed5QI',{v:'9',c:'ok'}],['rfspIndex','1'],
+    ['periodicRegTimer','3600s'],['activetime','0s'],
+    ['nssai','SST=1 SD=D143A5; SST=2 SD=FFFFFF'],
+    ['udmStatus',{v:'synced',c:'ok'}],
+  ]);blank();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CALL TRACE & PM
+// ═══════════════════════════════════════════════════════════════
+
+function callTraceJob(cmd,args){
+  const action=(args[1]||'').toLowerCase();
+  if(action==='create'){
+    const uid=getArg(cmd,'--userIdentity')||'imsi';
+    const dig=getArg(cmd,'--digits')||'302720100000001';
+    emit('callTraceJob created: '+uid+'='+dig,'ok');
+    emit('Trace job active. Signaling trace will be captured to /data-pm/trace/','dim');return;
+  }
+  if(action==='delete'){
+    emit('callTraceJob deleted: '+getArg(cmd,'--userIdentity')+'='+getArg(cmd,'--digits'),'ok');return;
+  }
+  if(action==='show'){
+    const uid=getArg(cmd,'--userIdentity')||'imsi';
+    const dig=getArg(cmd,'--digits')||'302720100000001';
+    emit('callTraceJob · '+uid+'='+dig,'hdr');blank();
+    emitTable(['Field','Value'],[
+      ['userIdentity',uid],['digits',dig],['traceStatus',{v:'active',c:'ok'}],
+      ['traceInterface','N1,N2,N8,N11,N12'],['traceFile','/data-pm/trace/IMSI_'+dig+'_trace.pcap'],
+    ]);blank();return;
+  }
+  emit('Call Trace Jobs','hdr');blank();
+  emitTable(['userIdentity','digits','traceStatus','created'],[
+    ['imsi','302720100000001',{v:'active',c:'ok'},'2024-11-14T14:00:00Z'],
+    ['imsi','302720100000003',{v:'active',c:'ok'},'2024-11-14T10:30:00Z'],
+  ]);blank();
+}
+
+function callTraceSetting(cmd,args){
+  if(cmd.toLowerCase().includes('modify')){
+    emit('callTraceSetting modified.','ok');return;
+  }
+  emit('Call Trace Settings','hdr');blank();
+  emitTable(['Interface','Enabled'],[
+    ['n1',{v:'true',c:'ok'}],['n2',{v:'true',c:'ok'}],['n8',{v:'true',c:'ok'}],
+    ['n11',{v:'true',c:'ok'}],['n12',{v:'true',c:'ok'}],['n14',{v:'false',c:'dim'}],
+    ['n15',{v:'true',c:'ok'}],['n22',{v:'true',c:'ok'}],['n26',{v:'true',c:'ok'}],
+    ['s10',{v:'false',c:'dim'}],['s11',{v:'false',c:'dim'}],['gb',{v:'false',c:'dim'}],
+  ]);blank();
+}
+
+function traceData(cmd,args){
+  const action=(args[1]||'').toLowerCase();
+  if(action==='create'){
+    const imsi=getArg(cmd,'--imsi')||getArg(cmd,'--msisdn');
+    const tid=getArg(cmd,'--traceID');
+    emit('traceData created: imsi/msisdn='+imsi+' traceID='+tid,'ok');return;
+  }
+  if(action==='delete'){emit('traceData deleted.','ok');return;}
+  const imsi=getArg(cmd,'--imsi');const tid=getArg(cmd,'--traceID');
+  emit('Trace Data Files','hdr');blank();
+  emitTable(['file','imsi','traceID','size','created'],[
+    ['IMSI_302720100000001_TRACEID_1_2024-11-14-14-00-00.pcap','302720100000001','1','2.4MB','2024-11-14T14:00:00Z'],
+    ['IMSI_262280000000005_TRACEID_997_2024-11-13-10-00-00.pcap','262280000000005','997','1.1MB','2024-11-13T10:00:00Z'],
+  ]);blank();
+}
+
+function traceDataStatus(cmd,args){
+  const imsi=getArg(cmd,'--imsi');const tid=getArg(cmd,'--traceID');
+  if(cmd.toLowerCase().includes('show')&&imsi){
+    emit('Trace Data Status · IMSI:'+imsi,'hdr');blank();
+    emitTable(['Field','Value'],[
+      ['imsi',imsi],['traceID',tid||'1'],['status',{v:'active',c:'ok'}],
+      ['capturedInterfaces','N1,N2,N8,N11'],['fileLocation','/data-pm/trace/'],
+    ]);blank();return;
+  }
+  emit('Trace Data Status','hdr');blank();
+  emitTable(['imsi','traceID','status','interfaces'],[
+    ['302720100000001','1',{v:'active',c:'ok'},'N1,N2,N8,N11'],
+    ['262280000000005','997',{v:'complete',c:'dim'},'N1,N2'],
+  ]);blank();
+}
+
+function pmJob(cmd,args){
+  const action=(args[1]||'').toLowerCase();
+  const jobName=getArg(cmd,'--jobName')||(args[2]||'defaultJob');
+  if(action==='create'){
+    const gp=getArg(cmd,'--granuPeriod')||'15';
+    emit('pmJob created: '+jobName+' granuPeriod='+gp+'min','ok');return;
+  }
+  if(action==='modify'){emit('pmJob modified: '+jobName,'ok');return;}
+  if(action==='delete'){emit('pmJob deleted: '+jobName,'ok');return;}
+  if(action==='show'){
+    emit('pmJob · '+jobName,'hdr');blank();
+    emitTable(['Field','Value'],[
+      ['jobName',jobName],['granuPeriod',{v:'15',c:'ok'}],['reportingPeriod','900'],
+      ['status',{v:'active',c:'ok'}],['fileFormat','XML'],
+    ]);blank();return;
+  }
+  emit('PM Jobs','hdr');blank();
+  emitTable(['jobName','granuPeriod','status','measurements'],[
+    ['defaultJob',{v:'15min',c:'ok'},{v:'active',c:'ok'},'allMts'],
+    ['testJob',{v:'5min',c:'ok'},{v:'active',c:'ok'},'cpuUsageCoreMts'],
+  ]);blank();
+}
+
+function pmJobMeas(cmd,args){
+  const action=(args[1]||'').toLowerCase();
+  if(action==='create'){
+    emit('pmJobMeas created: job='+getArg(cmd,'--jobName')+' mts='+getArg(cmd,'--mts'),'ok');return;
+  }
+  if(action==='delete'){emit('pmJobMeas deleted.','ok');return;}
+  if(action==='show'){
+    emit('pmJobMeas · '+(args[2]||'defaultJob~allMts'),'hdr');blank();
+    emitTable(['Field','Value'],[['pmJobMeas','defaultJob~allMts'],['status',{v:'active',c:'ok'}],['mts','allMts']]);blank();return;
+  }
+  emit('PM Job Measurements','hdr');blank();
+  emitTable(['pmJobMeas','status'],[
+    ['defaultJob~allMts',{v:'active',c:'ok'}],['testJob~cpuUsageCoreMts',{v:'active',c:'ok'}],
+  ]);blank();
+}
+
+function pmJobSched(cmd,args){
+  const action=(args[1]||'').toLowerCase();
+  if(action==='create'){
+    emit('pmJobSched created: job='+getArg(cmd,'--jobName')+' id='+getArg(cmd,'--schedId'),'ok');return;
+  }
+  if(action==='delete'){emit('pmJobSched deleted.','ok');return;}
+  emit('PM Job Schedules','hdr');blank();
+  emitTable(['schedId','jobName','schedType','startTime','endTime'],[
+    ['1','testJob','dly','08:00','14:00'],
+  ]);blank();
+}
+
+function pmMeasGroupName(cmd,args){
+  emit('PM Measurement Group Names','hdr');blank();
+  emitTable(['group','description'],[
+    ['m101','AMF registration counters'],['m118','AMF session management'],
+    ['m128','AMF N2 interface'],['m129','AMF storage'],['m130','AMF SBI'],
+  ]);blank();
+}
+
+function counterCmd(cmd,args){
+  const action=(args[1]||'').toLowerCase();
+  if(action==='definition'){
+    const grp=getArg(cmd,'--group')||'m128';
+    emit('Counter Definitions · group '+grp,'hdr');blank();
+    emitTable(['pid','name','description','unit'],[
+      [grp+'c000','amf.n2.setup.success','N2 Setup success count','count/interval'],
+      [grp+'c001','amf.n2.setup.failure','N2 Setup failure count','count/interval'],
+      [grp+'c002','amf.n2.ue.context.release','N2 UE Context Release','count/interval'],
+      [grp+'c003','amf.n2.handover.success','N2 Handover success','count/interval'],
+    ]);blank();return;
+  }
+  const pid=getArg(cmd,args[1])||args[2]||'m128c003';
+  emit('PM Counter · '+pid,'hdr');blank();
+  emitTable(['counter','value','interval','unit'],[
+    ['amf.reg.initial.success','12480','15min','count'],['amf.reg.periodic.success','8340','15min','count'],
+    ['amf.reg.deregistration','210','15min','count'],['amf.n2.setup.success','4','15min','count'],
+    ['amf.n11.pdu.create','3920','15min','count'],['amf.n8.sdm.get.success','24820','15min','count'],
+  ]);blank();
+}
+
+function counterGroup(cmd,args){
+  const action=(args[1]||'').toLowerCase();
+  if(action==='definition'&&args[2]==='show'){
+    const g=args[3]||'m101';
+    emit('Counter Group Definition · '+g,'hdr');blank();
+    emitTable(['Field','Value'],[['groupId',g],['description','AMF Registration Counters'],['counterCount','42'],['reportingPeriod','900s']]);blank();return;
+  }
+  emit('Counter Group Definitions','hdr');blank();
+  emitTable(['groupId','description','counterCount'],[
+    ['m101','AMF Registration','42'],['m118','AMF Session Management','67'],
+    ['m128','AMF N2 Interface','31'],['m129','AMF Storage','18'],['m130','AMF SBI','25'],
+  ]);blank();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// IP & ROUTING
+// ═══════════════════════════════════════════════════════════════
+
+function subnetCmd(cmd,args){
+  if(cmd.toLowerCase().includes('create')){
+    const base=getArg(cmd,'--base');const mask=getArg(cmd,'--subnetMask');const ipv=getArg(cmd,'--ipv')||'4';
+    emit('subnet created: IPv'+ipv+' '+base+'/'+mask,'ok');return;
+  }
+  emit('Subnet List','hdr');blank();
+  emitTable(['subnetId','ipv','base','subnetMask','description'],[
+    ['1','4','172.16.46.0','255.255.255.0','N2 Signaling'],
+    ['2','4','172.16.59.0','255.255.255.0','SBI/S1 Network'],
+    ['3','4','172.16.10.0','255.255.255.0','Internal Cluster'],
+    ['58','4','192.168.39.0','255.255.255.0','OAM Network'],
+    ['59','4','192.168.139.0','255.255.255.0','OAM Secondary'],
+  ]);blank();
+}
+
+function serviceIp(cmd,args){
+  if(cmd.toLowerCase().includes('create')){emit('serviceIp created.','ok');return;}
+  emit('Service IP List','hdr');blank();
+  emitTable(['name','ip','type','interface','poolType'],[
+    ['oam-vip','172.16.10.100','OAM','eth0','NECC'],
+    ['n2-svc','172.16.46.201','N2 Signaling','eth1','IPDS'],
+    ['sbi-svc','172.16.46.202','SBI','eth1','IPDS'],
+    ['n26-svc','172.16.46.203','N26','eth2','IPDS'],
+    ['prometheus-ext','172.16.100.5','Prometheus Scrape','eth0','NECC'],
+  ]);blank();
+}
+
+function amfServiceIp(cmd,args){
+  if(cmd.toLowerCase().includes('create')){
+    const n=getArg(cmd,'--name');const ip=getArg(cmd,'--svcIpV4')||getArg(cmd,'--svcIpV6');
+    emit('amfServiceIp created: name='+n+' ip='+ip,'ok');return;
+  }
+  emit('AMF Service IPs','hdr');blank();
+  emitTable(['name','svcIpV4','svcIpV6','poolType','poolId','description'],[
+    ['N2','172.16.46.201','','IPDS','0','N2 NGAP interface'],
+    ['SBI','172.16.46.202','','IPDS','0','SBI (N8/N11/N12/N15)'],
+    ['N26','172.16.46.203','','IPDS','0','N26 MME interworking'],
+    ['Nnrf','172.16.46.204','','IPDS','0','NRF registration'],
+    ['NfySMF','172.16.46.205','','IPDS','0','SMF notifications'],
+    ['NfyNSSF','10.37.39.22','','IPDS','0','NSSF notifications'],
+    ['N22','172.16.46.206','','IPDS','0','NSSF N22 interface'],
+  ]);blank();
+}
+
+function dfltGateway(cmd,args){
+  if(cmd.toLowerCase().includes('create')){
+    const gw=getArg(cmd,'--gateway');const ipv=getArg(cmd,'--ipv')||'4';
+    emit('dfltGateway created: IPv'+ipv+' gw='+gw,'ok');return;
+  }
+  if(cmd.toLowerCase().includes('delete')){emit('dfltGateway deleted.','ok');return;}
+  if(cmd.toLowerCase().includes('show')){
+    const entry=args[2]||'NECC~0~2~fixed~4';
+    emit('dfltGateway · '+entry,'hdr');blank();
+    emitTable(['Field','Value'],[
+      ['poolType','NECC'],['poolId','0'],['poolMemberId','2'],
+      ['assignmentType','fixed'],['ipv','4'],['gateway','192.168.242.142'],
+    ]);blank();return;
+  }
+  emit('Default Gateways','hdr');blank();
+  emitTable(['poolType','poolId','memberId','assignmentType','ipv','gateway'],[
+    ['NECC','0','0','fixed','4','192.168.242.142'],
+    ['NECC','0','1','fixed','4','192.168.242.142'],
+    ['NECC','0','2','fixed','4','192.168.55.222'],
+    ['IPDS','0','0','fixed','4','172.16.46.1'],
+  ]);blank();
+}
+
+function staticRoute(cmd,args){
+  if(cmd.toLowerCase().includes('create')){
+    const base=getArg(cmd,'--base');const gw=getArg(cmd,'--gateway');
+    emit('staticRoute created: base='+base+' gw='+gw,'ok');return;
+  }
+  emit('Static Routes','hdr');blank();
+  emitTable(['ipv','poolType','poolId','base','subnetMask','gateway'],[
+    ['4','NECC','0','10.39.220.0','255.255.255.0','192.168.39.254'],
+    ['4','NECC','0','10.106.240.0','255.255.255.0','192.168.39.254'],
+    ['4','IPDS','0','172.16.100.0','255.255.255.0','172.16.59.1'],
+  ]);blank();
+}
+
+function dnsCmd(cmd,args){
+  if(cmd.toLowerCase().includes('modify')){
+    const ip=getArg(cmd,'--priDnsIp');
+    emit('dns modified: priDnsIp='+ip,'ok');return;
+  }
+  emit('DNS Configuration','hdr');blank();
+  emitTable(['Field','Value'],[
+    ['priDnsIp','10.121.1.2'],['secDnsIp','10.121.1.3'],
+    ['domain','5gc.bell.ca'],['ndnsDomain','nrf.5gc.bell.ca'],
+  ]);blank();
+}
+
+function ntpCmd(cmd,args){
+  if(cmd.toLowerCase().includes('modify')){
+    const prim=getArg(cmd,'--ntpPrimaryIp');const sec=getArg(cmd,'--ntpSecondaryIp');
+    emit('ntpUpdate modified: primary='+(prim||'unchanged')+' secondary='+(sec||'unchanged'),'ok');return;
+  }
+  emit('NTP Configuration','hdr');blank();
+  emitTable(['Field','Value'],[
+    ['ntpPrimaryIp','11.22.255.123'],['ntpSecondaryIp','11.22.255.124'],
+    ['syncStatus',{v:'synchronized',c:'ok'}],['stratum','2'],
+  ]);blank();
+}
+
+function ntpAuth(cmd,args){
+  if(cmd.toLowerCase().includes('create')){
+    emit('ntpAuthenticate created: server='+getArg(cmd,'--ntpServer'),'ok');return;
+  }
+  emit('NTP Authentication Entries','hdr');blank();
+  emitTable(['ntpServer','keyFormat'],[['11.22.255.123','MD5'],['11.22.255.124','MD5']]);blank();
+}
+
+function firewallRule(cmd,args){
+  if(cmd.toLowerCase().includes('create')){
+    const name=getArg(cmd,'--ruleName');const ip=getArg(cmd,'--externalIp');
+    emit('firewallRule created: name='+name+' externalIp='+ip,'ok');return;
+  }
+  emit('Firewall Rules','hdr');blank();
+  emitTable(['ruleName','externalIp','sport','firewallProtocol','ruleResult'],[
+    ['prometheusPush','10.106.240.100','9091','tcp',{v:'allow',c:'ok'}],
+    ['ONAPnonRT','10.39.220.143','23001','tcp',{v:'allow',c:'ok'}],
+    ['allow_oam','10.0.0.0/8','22','tcp',{v:'allow',c:'ok'}],
+    ['deny_all','0.0.0.0/0','*','*',{v:'deny',c:'err'}],
+  ]);blank();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SBI & HTTP
+// ═══════════════════════════════════════════════════════════════
+
+function httpProfile(cmd,args){
+  const action=(args[1]||'').toLowerCase();
+  const name=getArg(cmd,'--name')||(args[2]||'clientHttpProf');
+  if(action==='create'){
+    emit('httpProfile created: '+name,'ok');return;
+  }
+  if(action==='modify'){
+    const mcs=getArg(cmd,'--maxConcurrentStreams');
+    emit('httpProfile modified: '+name+' maxConcurrentStreams='+mcs,'ok');return;
+  }
+  if(action==='show'||action==='list'||!action){
+    if(args[2]&&args[2]!=='list'){
+      emit('httpProfile · '+args[2],'hdr');blank();
+      emitTable(['Field','Value'],[
+        ['name',args[2]],['headerTableSize','4096'],['maxConcurrentStreams',args[2].includes('server')?'1200':'200'],
+        ['initialWindowSize','65535'],['maxHeaderListSize','1000'],['timerToWaitForSettingsFrameWithAck','2000'],
+      ]);blank();return;
+    }
+    emit('HTTP Profiles','hdr');blank();
+    emitTable(['name','maxConcurrentStreams','initialWindowSize','role'],[
+      ['clientHttpProf','200','65535','Client (AMF→NF)'],
+      ['serverHttpProf','1200','65535','Server (NF→AMF)'],
+      ['clientServerHttpProf','1200','65535','Client+Server'],
+      ['NR10_HttpProf','100','65535','NR10 optimized'],
+    ]);blank();
+  }
+}
+
+function httpProxy(cmd,args){
+  const action=(args[1]||'').toLowerCase();
+  if(action==='create'){
+    const n=getArg(cmd,'--name');const rn=getArg(cmd,'--reportedName');
+    emit('httpProxy created: name='+n+' reportedName='+rn,'ok');return;
+  }
+  if(action==='modify'){emit('httpProxy modified: '+getArg(cmd,'--name'),'ok');return;}
+  emit('HTTP Proxies (SCP/SEPP)','hdr');blank();
+  emitTable(['name','reportedName','capacity','httpScheme','fqdn','fqdnPort','enable'],[
+    ['httpProxy1','NokiaScp1','128','https','scp.nokia1.net','443',{v:'true',c:'ok'}],
+    ['httpProxy2','NokiaScp2','256','https','scp.nokia2.net','443',{v:'true',c:'ok'}],
+    ['scp1','scp_atlanta','128','https','scp.atlanta.mynetwork.com','443',{v:'true',c:'ok'}],
+    ['scp2','scp_colorado','256','https','scp.colorado.mynetwork.com','443',{v:'true',c:'ok'}],
+    ['sepp1','sepp_newYork','32','http','sepp.newyork.mynetwork.com','8080',{v:'true',c:'ok'}],
+    ['sepp2','sepp_seattle','32','http','sepp.seattle.mynetwork.com','8080',{v:'true',c:'ok'}],
+  ]);blank();
+}
+
+function nfSvcInstance(cmd,args){
+  const action=(args[1]||'').toLowerCase();
+  if(action==='create'){emit('nfServiceInstance created: '+getArg(cmd,'--name'),'ok');return;}
+  if(action==='modify'){emit('nfServiceInstance modified: '+getArg(cmd,'--name'),'ok');return;}
+  emit('NF Service Instances','hdr');blank();
+  emitTable(['name','service','apiPrefix','allowedSnssaiListName','status'],[
+    ['Namf_Communication_0','Namf_Communication','','allowedSnssaiList1',{v:'active',c:'ok'}],
+    ['Namf_Communication_1','Namf_Communication','scp1apiPrefix','allowedSnssaiList1',{v:'active',c:'ok'}],
+    ['Namf_EventExposure_0','Namf_EventExposure','','',{v:'active',c:'ok'}],
+    ['Namf_Location_0','Namf_Location','','',{v:'active',c:'ok'}],
+    ['Namf_MT_0','Namf_MT','','',{v:'active',c:'ok'}],
+    ['Nsmf_EventExposure','Nsmf_EventExposure','','allowedSnssaiList1',{v:'active',c:'ok'}],
+  ]);blank();
+}
+
+function nfSvcList(cmd,args){
+  if(cmd.toLowerCase().includes('create')){emit('nfServicesList created: '+getArg(cmd,'--name'),'ok');return;}
+  emit('NF Services Lists','hdr');blank();
+  emitTable(['name','instances'],[['amfServices','Namf_Communication_0, Namf_Communication_1, Namf_EventExposure_0']]);blank();
+}
+
+function sbiCommProfile(cmd,args){
+  const action=(args[1]||'').toLowerCase();
+  if(action==='create'){emit('sbiCommunicationProfile created: '+getArg(cmd,'--name'),'ok');return;}
+  if(action==='modify'){emit('sbiCommunicationProfile modified.','ok');return;}
+  emit('SBI Communication Profiles','hdr');blank();
+  emitTable(['name','amfConsumer','status'],[
+    ['SBIcommProfile1','true',{v:'active',c:'ok'}],['newCommProfile','false',{v:'active',c:'ok'}],
+  ]);blank();
+}
+
+function sbiHttpProxy(cmd,args){
+  if(cmd.toLowerCase().includes('modify')){emit('sbiHttpProxySettingsProfile modified.','ok');return;}
+  emit('sbiHttpProxySettingsProfile · default','hdr');blank();
+  emitTable(['Field','Value'],[
+    ['defaultScpFqdnScheme','https'],['proxySelectionPolicy','round-robin'],['maxRetries','3'],
+  ]);blank();
+}
+
+function amfNrfGParms(cmd,args){
+  const name=getArg(cmd,'--amfGparmName');const value=getArg(cmd,'--amfGparmValue');
+  if(cmd.toLowerCase().includes('modify')&&name&&value){emit('amfNrfGParms modified: '+name+'='+value,'ok');return;}
+  emit('AMF NRF Global Parameters','hdr');blank();
+  emitTable(['amfGparmName','amfGparmValue','Description'],[
+    ['sendOnlyEndpointFqdnInRegistration',{v:'true',c:'ok'},'Send only endpoint FQDN in NRF registration'],
+    ['nrfHeartbeatTimer',{v:'30',c:'ok'},'NRF heartbeat interval (seconds)'],
+    ['nrfRetryTimer',{v:'5',c:'ok'},'NRF retry timer on failure'],
+  ]);blank();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ALARMS & DIAGNOSTICS (kept from v1)
+// ═══════════════════════════════════════════════════════════════
+
+function alarmActive(cmd,args){
+  if(cmd.toLowerCase().includes('show')){
+    const id=getArg(cmd,'--alarmId')||'40122';
+    const a={id:'40122',name:'amfMmeN26LinkDegraded',sev:'MAJOR',raised:'2024-11-14T14:32:00Z',obj:'N26/linkIndex=1',txt:'N26 interface link between AMF and MME is degraded.'};
+    emit('alarmActive · #'+a.id,'hdr');blank();
+    emitTable(['Field','Value'],[['alarmId',a.id],['alarmName',a.name],['severity',{v:a.sev,c:'err'}],['raisedTime',a.raised],['managedObject',a.obj],['additionalText',a.txt]]);blank();return;
+  }
+  emit('Active Alarms','hdr');blank();
+  emitTable(['alarmId','alarmName','severity','raisedTime','managedObject'],[
+    ['40122','amfMmeN26LinkDegraded',{v:'MAJOR',c:'err'},'2024-11-14T14:32:00Z','N26/linkIndex=1'],
+    ['40918','pmCountersMissing',{v:'MINOR',c:'warn'},'2024-11-14T13:55:00Z','pmCollector'],
+  ]);blank();
+  emit('Total: 2  (CRITICAL: 0, MAJOR: 1, MINOR: 1)','dim');
+}
+
+function alarmHistory(cmd,args){
+  emit('Alarm History','hdr');blank();
+  emitTable(['alarmId','alarmName','severity','raisedTime','clearedTime'],[
+    ['40122','amfMmeN26LinkDegraded',{v:'MAJOR',c:'err'},'2024-11-14T14:32:00Z',{v:'active',c:'err'}],
+    ['40918','pmCountersMissing',{v:'MINOR',c:'warn'},'2024-11-14T13:55:00Z',{v:'active',c:'warn'}],
+    ['40100','N2LinkFailed',{v:'MAJOR',c:'err'},'2024-11-14T09:11:00Z','2024-11-14T09:18:00Z'],
+    ['40201','nrfDeregistered',{v:'MAJOR',c:'err'},'2024-11-13T22:44:00Z','2024-11-13T22:46:00Z'],
+  ]);blank();
+}
+
+function alarmDef(cmd,args){
+  const id=getArg(cmd,'--alarmId')||'40122';
+  emit('alarmDefinition · #'+id,'hdr');blank();
+  if(id==='40122'){
+    emitTable(['Field','Value'],[
+      ['alarmId','40122'],['alarmName','amfMmeN26LinkDegraded'],['severity','MAJOR'],
+      ['description','N26 interface link between AMF and MME has entered a degraded state.'],
+      ['corrAction','Check: cmm amfMultiLink list --amfIntfType N26 | cmm nbiPing to MME | cmm rmtEndPtCfg show'],
+      ['clearCondition','All N26 links return to enabled/unlocked state.'],
+    ]);
+  } else {
+    emitTable(['Field','Value'],[['alarmId',id],['status','Definition available in production system']]);
+  }
+  blank();
+}
+
+function alarmIgnore(cmd,args){
+  const id=getArg(cmd,'--alarmId');
+  if(!id){emit('Syntax: cmm alarmIgnore create --alarmId <id>','warn');return;}
+  emit('alarmIgnore: alarmId '+id+' will be suppressed.','ok');
+  emit('Warning: Use suppression only during planned maintenance windows.','warn');
+}
+
+function nbiPing(cmd,args){
+  const target=getArg(cmd,'--pingTarget')||'172.16.59.11';
+  const src=getArg(cmd,'--pingSourceIp')||'172.16.46.201';
+  emit('PING '+target+' from '+src,'hdr');blank();
+  emitTable(['nbiPing','pingOutput'],[
+    [target+'~0','PING '+target+' ('+target+') from '+src+' : 56(84) bytes of data.'],
+    [target+'~1','64 bytes from '+target+': icmp_seq=1 ttl=64 time=2.60 ms'],
+    [target+'~2','64 bytes from '+target+': icmp_seq=2 ttl=64 time=1.71 ms'],
+    [target+'~3','64 bytes from '+target+': icmp_seq=3 ttl=64 time=2.62 ms'],
+    [target+'~4','64 bytes from '+target+': icmp_seq=4 ttl=64 time=3.00 ms'],
+    [target+'~5','64 bytes from '+target+': icmp_seq=5 ttl=64 time=2.44 ms'],
+    [target+'~7','--- '+target+' ping statistics ---'],
+    [target+'~8','5 packets transmitted, 5 received, 0% packet loss, time 4005ms'],
+    [target+'~9',{v:'rtt min/avg/max/mdev = 1.712/2.475/3.000/0.425 ms',c:'ok'}],
+  ]);blank();
+}
+
+function amfHttp2Ping(cmd,args){
+  const intf=getArg(cmd,'--amfClientIntf')||'N8';
+  const ip=getArg(cmd,'--amfRmtEndIp')||'172.16.59.71';
+  const port=getArg(cmd,'--amfRmtEndIpPort')||'8080';
+  emit('HTTP/2 Ping → '+intf+' '+ip+':'+port,'hdr');blank();
+  emitTable(['amfHttp2Ping','http2PingTimeOut','numHttp2Ping','http2PingStatus','roundTripTimeSec','roundTripTimeUsec'],[
+    [intf+'~1~'+ip+'~'+port+'~1','5','5',{v:'success',c:'ok'},'0','46900'],
+    [intf+'~1~'+ip+'~'+port+'~2','5','5',{v:'success',c:'ok'},'0','31913'],
+    [intf+'~1~'+ip+'~'+port+'~3','5','5',{v:'success',c:'ok'},'0','25589'],
+    [intf+'~1~'+ip+'~'+port+'~4','5','5',{v:'success',c:'ok'},'0','24688'],
+    [intf+'~1~'+ip+'~'+port+'~5','5','5',{v:'success',c:'ok'},'0','24945'],
+  ]);blank();emit('avg RTT: 30.8ms  max: 46.9ms  loss: 0%','ok');
+}
+
+function clusterMgmt(cmd,args){
+  emit('clusterMgmt test.ping · all nodes','hdr');blank();
+  emitTable(['node','ip','pingStatus','rtt_ms'],[
+    ['necc0','172.16.10.1',{v:'alive',c:'ok'},'0.3'],['necc1','172.16.10.2',{v:'alive',c:'ok'},'0.4'],
+    ['cpps-1','172.16.10.11',{v:'alive',c:'ok'},'0.5'],['cpps-2','172.16.10.12',{v:'alive',c:'ok'},'0.5'],
+    ['cpps-3','172.16.10.13',{v:'alive',c:'ok'},'0.6'],['ipds-1','172.16.10.21',{v:'alive',c:'ok'},'0.4'],
+    ['ipds-2','172.16.10.22',{v:'alive',c:'ok'},'0.4'],
+  ]);blank();
+}
+
+function gParmsCmd(cmd,args){
+  const name=getArg(cmd,'--gParmName');
+  const db={enablePrometheusGW:'true',prometheusMode:'push',prometheusFormat:'advanced',prometheusRequests:'1000',prometheusSlidingWindow:'60',pmFileToFluentd:'No',enableAlarmEventsStream:'Yes',enableLogEventsStream:'Yes',measInfoIdUsage:'serviceAndCategory'};
+  if(name&&db[name]!==undefined){
+    emit('gParms · '+name,'hdr');blank();
+    emitTable(['gParmName','gParmValue'],[[name,{v:db[name],c:'ok'}]]);blank();
+  } else if(cmd.toLowerCase().includes('modify')){
+    const n=getArg(cmd,'--gParmName')||args[2];const v=getArg(cmd,'--gParmValue')||args[3];
+    if(db[n]!==undefined)db[n]=v;
+    emit('gParms modified: '+(n||'')+'='+(v||''),'ok');
+  } else {
+    emit('gParms List','hdr');blank();
+    emitTable(['gParmName','gParmValue'],Object.entries(db).map(([k,v])=>[k,{v,c:'ok'}]));blank();
+  }
+}
+
+function rmtEndPt(cmd,args){
+  if(cmd.toLowerCase().includes('create')){
+    emit('rmtEndPtCfg created: name='+getArg(cmd,'--name'),'ok');return;
+  }
+  emit('Remote Endpoint Configuration','hdr');blank();
+  emitTable(['name','interfaceName','ip1','ip2','port','operState'],[
+    ['gNB_Core_1','N2','172.16.59.11','0.0.0.0','36412',{v:'enabled',c:'ok'}],
+    ['gNB_Core_2','N2','172.16.59.12','0.0.0.0','36412',{v:'enabled',c:'ok'}],
+    ['UDM_primary','N8','172.16.59.71','0.0.0.0','8080',{v:'enabled',c:'ok'}],
+    ['SMF_primary','N11','172.16.59.51','0.0.0.0','8080',{v:'enabled',c:'ok'}],
+    ['AUSF_primary','N12','172.16.59.61','0.0.0.0','8080',{v:'enabled',c:'ok'}],
+    ['NRF_primary','Nnrf','172.16.59.81','0.0.0.0','8080',{v:'enabled',c:'ok'}],
+    ['MME_legacy_1','N26','172.16.59.91','0.0.0.0','2123',{v:'disabled',c:'warn'}],
+  ]);blank();
+}
+
+function localEndPt(cmd,args){
+  if(cmd.toLowerCase().includes('create')){emit('localEndPtCfg created: '+getArg(cmd,'--interfaceName'),'ok');return;}
+  emit('Local Endpoint Configuration','hdr');blank();
+  emitTable(['interfaceName','localIp1','multiHomed','port'],[
+    ['N2 (S1MME)','172.16.46.201','false','36412'],['N8','172.16.46.202','false','8080'],
+    ['N11','172.16.46.202','false','8080'],['N12','172.16.46.202','false','8080'],
+    ['N15','172.16.46.202','false','8080'],['N26','172.16.46.203','true','2123'],
+  ]);blank();
+}
+
+function prometheusGW(cmd,args){
+  emit('prometheusGW List','hdr');blank();
+  emitTable(['name','ip','port','status'],[
+    ['prometheusGW_1','172.16.100.10','9091',{v:'connected',c:'ok'}],
+    ['prometheusGW_2','172.16.100.11','9091',{v:'connected',c:'ok'}],
+  ]);blank();
+}
+
+function diamProfile(cmd,args){
+  if(cmd.toLowerCase().includes('create')){
+    emit('diamProfile created: name='+getArg(cmd,'--name'),'ok');return;
+  }
+  emit('Diameter Profiles','hdr');blank();
+  emitTable(['name','dwrFreqTimer','dwrMsgTimer','dwrRetransMax','cerRetransMax','diamProductName'],[
+    ['1','10000','2000','3','3','MME Diameter'],['2','15000','3000','3','5','AMF Diameter GW'],
+  ]);blank();
+}
+
+function hssGrp(cmd,args){
+  emit('hssGrp','hdr');blank();
+  emitTable(['name','hssIp','groupId','status'],[
+    ['HSS_primary','172.16.59.31','1',{v:'active',c:'ok'}],
+    ['HSS_secondary','172.16.59.32','1',{v:'standby',c:'dim'}],
+  ]);blank();
+}
+
+function dcaeServer(cmd,args){
+  const action=(args[1]||'').toLowerCase();
+  if(action==='create'){
+    const id=getArg(cmd,'--dcaeReportId');const ip=getArg(cmd,'--primaryIp');const port=getArg(cmd,'--primaryPort');
+    emit('dcaeServer created: reportId='+id+' ip='+ip+':'+port,'ok');return;
+  }
+  if(action==='show'){
+    const id=args[2]||'amfRTPMReport';
+    emit('dcaeServer · '+id,'hdr');blank();
+    emitTable(['Field','Value'],[
+      ['dcaeReportId',id],['primaryIp','10.39.220.78'],['primaryPort','23001'],
+      ['dcaeConnName','exam'],['status',{v:'connected',c:'ok'}],
+    ]);blank();return;
+  }
+  emit('DCAE Servers (ONAP)','hdr');blank();
+  emitTable(['dcaeReportId','primaryIp','primaryPort','status'],[
+    ['amfRTPMReport','10.39.220.78','23001',{v:'connected',c:'ok'}],
+    ['nonRTPMReport','10.39.220.143','23000',{v:'connected',c:'ok'}],
+  ]);blank();
+}
+
+function fluentdCmd(cmd,args){
+  if(cmd.toLowerCase().includes('create')){
+    const n=getArg(cmd,'--name');const ip=getArg(cmd,'--fluentdIp');const port=getArg(cmd,'--fluentdPort');
+    emit('fluentdTcpConfig created: name='+n+' ip='+ip+':'+port,'ok');return;
+  }
+  emit('Fluentd TCP Configurations','hdr');blank();
+  emitTable(['name','fluentdIp','fluentdPort','status'],[
+    ['tcpExample','10.10.20.20','20001',{v:'connected',c:'ok'}],
+  ]);blank();
+}
+
+function defaultNotif(cmd,args){
+  if(cmd.toLowerCase().includes('create')){emit('defaultNotificationSubscription created: '+getArg(cmd,'--name'),'ok');return;}
+  emit('Default Notification Subscriptions','hdr');blank();
+  emitTable(['name','callbackUri','n1MessageClass'],[
+    ['gmlcDefNotifLpp2','https://amf.5gc.mnc012.mcc345.3gppnetwork.org','LPP'],
+    ['lmfDefNotifNppa3','https://amf.5gc.mnc012.mcc345.3gppnetwork.org','NPPA3'],
+  ]);blank();
+}
+
+function sbiTest(cmd,args){
+  const uri=getArg(cmd,'--targetUri')||'http://172.16.59.71:8080/nudm-sdm/v2/imsi-302720100000001/sdm-subscriptions';
+  const ep=getArg(cmd,'--endPointName')||'N8';
+  emit('sbiConnectionTestUri · '+ep,'hdr');blank();
+  emitTable(['sbiConnectionTestUri','connectionTestStatus','requestMethod'],[[ep+'~'+uri,{v:'Http2 status code 200',c:'ok'},'OPTIONS']]);blank();
+}
+
+function personalizeCmd(cmd,args){
+  emit('personalize · node configuration','hdr');blank();
+  emitTable(['Field','Value'],[
+    ['timezone','America/Toronto (EST, UTC-5)'],['locale','en_CA'],['nodeName','necc0'],
+  ]);blank();
+}
+
+function pcsStatus(){
+  emit('Pacemaker Cluster Status','hdr');blank();
+  emit('Cluster name: cmm-cluster  Stack: corosync','info');blank();
+  emitTable(['Resource','State','Node'],[
+    ['cmm-vip',{v:'Started',c:'ok'},'necc0'],['cmm-db-master',{v:'Master',c:'ok'},'necc0'],
+    ['cmm-db-slave',{v:'Slave',c:'ok'},'necc1'],['alarmconsumer',{v:'Started',c:'ok'},'necc0'],
+    ['alarmkeeper',{v:'Started',c:'ok'},'necc0'],['pmcollector',{v:'Started',c:'ok'},'necc0'],
+    ['pmaggregator',{v:'Started',c:'ok'},'necc0'],['prometheusclient',{v:'Started',c:'ok'},'necc0'],
+  ]);blank();emit('2 nodes configured, 2 online.','ok');
+}
+
+function journalCtl(cmd){
+  const svc=cmd.match(/-u (\S+)/)?.[1]||'cmm';
+  emit('journalctl -u '+svc,'hdr');blank();
+  emit('Nov 14 14:45:12 necc0 '+svc+'[1234]: INFO  Service healthy','dim');
+  emit('Nov 14 14:44:00 necc0 '+svc+'[1234]: INFO  Heartbeat sent to NECC-1','dim');
+  emit('Nov 14 14:32:01 necc0 '+svc+'[1234]: WARN  N26 link index=1 state changed to disabled','warn');
+  blank();
+}
+
+function lsCmd(){emit('/home/cmm  /data-pm/  /data-perf/  /var/log/','dim');}
+
+// ═══════════════════════════════════════════════════════════════
+// MD-CLI MODE
+// ═══════════════════════════════════════════════════════════════
+
+function enterMdCli(cmd){
+  const inlinecmd=cmd.replace(/^md-cli\s*/i,'').trim();
+  if(inlinecmd){
+    emit('[MD-CLI inline] '+inlinecmd,'mdcli');
+    dispatchMdCli(inlinecmd);
+    return;
+  }
+  mdCliMode=true;
+  promptEl.textContent='*[ex:/]A:admin@necc0#';
+  emit('','dim');
+  emit('── Entering MD-CLI ──────────────────────────────────────────────────','hdr');
+  emit('   Nokia CMM MD-CLI  |  Node: necc0  |  Session: explicit mode','dim');
+  emit('   Type "exit all" or "quit" to return to CMM CLI','dim');
+  emit('   Commands: info, configure, commit, compare, discard, validate, tree','dim');
+  emit('────────────────────────────────────────────────────────────────────','hdr');
+  blank();
+}
+
+function dispatchMdCli(cmd){
+  const lower=cmd.toLowerCase().trim();
+
+  if(lower==='exit all'||lower==='quit'||lower==='exit'){
+    mdCliMode=false;
+    promptEl.textContent='[cmm@necc0 ~]$';
+    emit('Exiting MD-CLI. Returning to CMM CLI.','ok');blank();return;
+  }
+
+  // configure context
+  if(lower.startsWith('/configure amf')&&!lower.includes('info')){
+    const path=cmd.replace(/^\/configure\s+/i,'');
+    emit('*[ex:/configure] Entering: '+path,'mdcli');
+    emit('Use "info" to display current config, or set parameter values.','dim');blank();return;
+  }
+
+  if(lower.startsWith('info /configure amf endpoint')||lower==='info endpoint'){
+    emit('AMF Endpoint Configuration (MD-CLI)','hdr');blank();
+    const d=document.createElement('div');d.className='mdcli-block';
+    d.textContent=
+`/configure amf endpoint {
+    n2-endpoint "AMF_5G_RAN" {
+        service-ip "N2"
+        interface-type n2
+        admin-state enable
+    }
+    n2-endpoint "5G_RAN_2" {
+        service-ip "N2_secondary"
+        interface-type n2
+        admin-state enable
+    }
+    sbi-server-endpoint "AMF_Com_0" {
+        service-ip "SBI"
+        nf-service-instance "Namf_Communication_0"
+        dscp-code cs4
+    }
+}`;
+    out.appendChild(d);blank();return;
+  }
+
+  if(lower.includes('info /configure amf profile am-policy')||lower.includes('am-policy')){
+    emit('AMF AM Policy Profile (MD-CLI)','hdr');blank();
+    const d=document.createElement('div');d.className='mdcli-block';
+    d.textContent=
+`/configure amf profile am-policy "default" {
+    max-num-of-tas 255
+    rfsp-index 0
+    service-area-restriction 1
+    v2x false
+    periodic-reg-timer 3600
+    active-time 0
+}`;
+    out.appendChild(d);blank();return;
+  }
+
+  if(lower==='info'||lower.startsWith('info')){
+    emit('MD-CLI info output · /','hdr');blank();
+    const d=document.createElement('div');d.className='mdcli-block';
+    d.textContent=
+`configure {
+    amf {
+        mobile-network {
+            plmn "302_720" {
+                mcc 302
+                mnc 720
+                plmn-type home
+            }
+        }
+        capacity {
+            amf-relative-capacity 128
+        }
+        endpoint { ... }
+        profile { ... }
+    }
+    shared {
+        profile {
+            sctp "1" {
+                asso-max-retrans 10
+                cookie-life 60
+            }
+        }
+    }
+}`;
+    out.appendChild(d);blank();return;
+  }
+
+  if(lower==='commit'||lower==='/commit'){
+    emit('Commit successful. Running config updated.','ok');blank();return;
+  }
+
+  if(lower.startsWith('compare')){
+    emit('compare baseline running','hdr');blank();
+    const d=document.createElement('div');d.className='mdcli-block';
+    d.textContent=
+`+    /configure amf capacity amf-relative-capacity 128
+-    /configure amf capacity amf-relative-capacity 100`;
+    out.appendChild(d);blank();
+    emit('1 addition, 1 deletion.','dim');blank();return;
+  }
+
+  if(lower==='discard'){emit('Candidate configuration discarded.','warn');blank();return;}
+  if(lower==='validate'){emit('Candidate configuration validated successfully.','ok');blank();return;}
+
+  if(lower==='tree'||lower.startsWith('tree')){
+    emit('MD-CLI Configuration Tree (AMF subtree)','hdr');blank();
+    const d=document.createElement('div');d.className='mdcli-block';
+    d.textContent=
+`configure
+ └── amf
+      ├── mobile-network
+      │    └── plmn [name]
+      ├── capacity
+      │    └── amf-relative-capacity
+      ├── endpoint
+      │    ├── n2-endpoint [name]
+      │    └── sbi-server-endpoint [name]
+      ├── profile
+      │    └── am-policy [name]
+      ├── security
+      │    ├── ciphering-algorithm
+      │    └── integrity-algorithm
+      └── tai [plmn tac]`;
+    out.appendChild(d);blank();return;
+  }
+
+  if(lower.startsWith('/state amf')||lower.startsWith('state amf')){
+    emit('/state amf','hdr');blank();
+    const d=document.createElement('div');d.className='mdcli-block';
+    d.textContent=
+`state {
+    amf {
+        oper-state in-service
+        admin-state unlocked
+        registered-ues 1247
+        connected-ues 834
+        nrf-registration registered
+        n26-state degraded
+    }
+}`;
+    out.appendChild(d);blank();return;
+  }
+
+  if(lower.startsWith('/state mme mobile-network plmn')){
+    emit('/state mme mobile-network plmn','hdr');blank();
+    const d=document.createElement('div');d.className='mdcli-block';
+    d.textContent=`state mme mobile-network plmn "302_720" { oper-state in-service }`;
+    out.appendChild(d);blank();return;
+  }
+
+  // NETCONF hint
+  if(lower.includes('<get')||lower.includes('<edit-config')){
+    emit('NETCONF operations: Use the NETCONF tab or connect via SSH port 830.','dim');blank();return;
+  }
+
+  emit('MD-CLI: command not recognized. Try: info, configure, commit, compare, discard, validate, tree, exit all','warn');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HELP
+// ═══════════════════════════════════════════════════════════════
+
+function showHelp(){
+  emit('Nokia CMM AMF CLI Simulator v4 — Command Reference','hdr');blank();
+  const sections=[
+    ['AMF Core',['cmm amfInstance show|create|modify','cmm aggregateService show|modify --amfAdminState {locked,unlocked}','cmm amfGParms show --amfGparmName <n> | list | modify','cmm amfCapacityGParms show','cmm amfLcsGParms show|modify','cmm amfCipheringAlgorithm show|modify','cmm amfIntegrityAlgorithm show|modify','cmm amfEpsCipheringAlgorithm show|modify','cmm amfEpsIntegrityAlgorithm show|modify']],
+    ['Interfaces & Endpoints',['cmm amfMultiLink list [--amfIntfType {N2,N8,N11,N12,N26,Nnrf,...}] | show','cmm amfLinkAdmin show|modify --amfLinkType N2 --amfLinkAdminState {blocked,locked,unlocked}','cmm amfConsumerLocalEndPointConfig list|show|create --endPointName <n>','cmm amfNotificationEndPointConfig list|create','cmm amfNgRanLocalEndPointConfig list|create','cmm amfN26LocalEndPointConfig show|create','cmm amfServicesEndPointConfig list|create']],
+    ['Network & Slicing',['cmm plmn list|show   cmm amfPlmn list|create','cmm tai list|create --plmnName <n> --tac <tac>','cmm allowedSnssai list|create --name <n> --sliceServiceType <sst> --sliceDifferentiator <sd>','cmm allowedSnssaiList list|create   cmm allowedSnssaiListItem create','cmm amfAdjacentPlmn list|create   cmm amfAdjacentPlmnList create','cmm amfEplmn list|create   cmm amfEplmnList create','cmm amfDnnOverrideProfile list|create','cmm amfEmergencyProfile list|create|modify','cmm amfEmergencyNum create   cmm amfEmergencyNumList create']],
+    ['UE & Subscribers',['cmm ueContext list|show --imsi <imsi>','cmm ueContextCount list','cmm subscriber show --imsi <imsi>']],
+    ['Call Trace',['cmm callTraceJob create --userIdentity imsi --digits <imsi>','cmm callTraceJob list|show|delete','cmm callTraceSetting show|modify','cmm traceData create --imsi <imsi> --traceID <id>','cmm traceData list|delete','cmm traceDataStatus list|show']],
+    ['Performance Management',['cmm pmJob create --jobName <n> --granuPeriod <mins>','cmm pmJob list|show|modify|delete','cmm pmJobMeas create|list|show|delete','cmm pmJobSched create|list|delete','cmm counter list --group <g>   cmm counter show <pid>','cmm counterGroup definition list|show']],
+    ['IP & Routing',['cmm subnet list|create --base <ip> --subnetMask <mask>','cmm serviceIp list|create   cmm amfServiceIp list|create','cmm dfltGateway list|show|create|delete','cmm staticRoute list|create --base <subnet> --gateway <gw>','cmm dns show|modify --priDnsIp <ip>','cmm ntpUpdate show|modify   cmm ntpAuthenticate create','cmm firewallRule list|create']],
+    ['SBI & HTTP',['cmm httpProfile list|show|create|modify --maxConcurrentStreams <n>','cmm httpProxy list|create|modify','cmm nfServiceInstance list|create|modify','cmm sbiCommunicationProfile list|create','cmm amfNrfGParms show|modify']],
+    ['Alarms & Diagnostics',['cmm alarmActive list|show   cmm alarmHistory list','cmm alarmDefinition show --alarmId <id>   cmm alarmIgnore create','cmm nbiPing list --pingTarget <ip> --pingSourceIp <ip>','cmm amfHttp2Ping list --amfClientIntf N8 --amfRmtEndIp <ip> --amfRmtEndIpPort 8080','cmm sbiConnectionTestUri list --targetUri <uri> --endPointName N8','cmm clusterMgmt test.ping --target \'*\'','cmm gParms show|modify','cmm prometheusGW list']],
+    ['DCAE & Fluentd',['cmm dcaeServer create|list|show','cmm fluentdTcpConfig create|list','cmm defaultNotificationSubscription create|list']],
+    ['Troubleshooting — System Health',['sudo cmm_monitor  |  sudo cmm_monitor -vv  |  sudo cmm_monitor -t vminfo -vv','sudo fns_monitor','cmm systemInfo show','cmm system show','serf leave  (fix serf critical after reboot)']],
+    ['Troubleshooting — Alarms',['cmm alarm definition list','cmm alarm definition show <PID>','cmm alarm active list','cmm alarm active show <INDEX>','cmm alarm active cancel <INDEX>','cmm alarm active cancel --sourceHost <host>','cmm alarm active cancel --pid <PID>','cmm alarm history list --period 1h','cmm alarm history show <INDEX> --task raise','cmm alarmIgnore create --alarmId <PID>','cmm alarmIgnore list','cmm alarmIgnore delete --alarmId <PID>']],
+    ['Troubleshooting — Subscriber',['cmm subscriber show --imsi <IMSI> --radioType 5G','cmm subscriber show --amfRmState registered --radioType 5G','cmm subscriber show --amfCmState connected --radioType 5G','cmm subscriber count  |  --amfRmState registered  |  --amfCmState connected','cmm subscriber delete --imsi <IMSI> --radioType 5G  (WARNING: force deregister)']],
+    ['Troubleshooting — Trace & PCAP',['cmm traceData create --imsi <IMSI> --traceOrigin cli','cmm traceData create --imsi <IMSI> --traceOrigin cli --start <T> --end <T>','cmm traceDataStatus list  |  --imsi <IMSI>  |  --column HITS','cmm traceDataStatus show --traceID <ID>','cmm traceData delete --imsi <IMSI> --traceOrigin cli --limit db|all','ls -la /data-pcmd/','tail -f /data-logs/protocolmonitor.log','grep <IMSI> /data-logs/protocolmonitor.log','sftp -oPort=22 admin@<NECC_IP>:/data-pcmd/<file>.pcap .']],
+    ['Troubleshooting — PCMD',['cmm amfPcmdConfig show','cmm amfPcmdConfig modify --enableSubscribeReport true','cmm amfPcmdConfig modify --include5qi true','cmm amfPcmdConfig modify --enableHttpProxyDetails onError','cmm pcmdStreaming list|create|modify','cmm serviceIp create --poolType PCMS --poolId 0 ...','netstat -nap | grep <analytics_port>','ls -la /data-pcmd/  |  zcat /data-pcmd/<file>.gz | head -50']],
+    ['Troubleshooting — Connectivity',['cmm nbiPing list --pingTarget <IP> --pingSourceIp <IP>','cmm nbiPing list --pingTarget <IP> --pingCount 5 --pingTimeOut 10','cmm nbiTraceroute list --traceTarget <IP>','cmm amfHttp2Ping list --amfClientIntf N8 --amfRmtEndIp <IP>','tcpdump -i any -s 3000 -w /tmp/capture.pcap','nslookup <FQDN>  |  dig <FQDN>  (Linux shell)']],
+    ['Troubleshooting — Logs & Debug',['tail -f /var/log/app/master.log','grep <IMSI> /var/log/app/master.log | tail -100','grep -i "fail|error|reject" /var/log/app/signaling.log | tail -50','/usr/sbin/get_debug_info --profile admin --vmlist necc,ipds --daylist <DATE> --hourlist <HH> --compress --debug','/opt/app/bin/cmmDBdump','ts  |  ts logs  |  ts debug  |  ts ue  |  ts alarms  |  ts pcmd']],
+    ['System',['cmm version','cmm authenticate','cmm version','cmm authenticate','cmm diamProfile list|create','cmm hssGrp list','sudo pcs status','sudo journalctl -u <service>','md-cli  — enter MD-CLI mode (info, configure, commit, compare, discard, validate, exit all)','clear  |  help  |  tutorial']],
+    ['MOP — AMF Integration (8 Phases)',['mop  — overview & phase index','mop phase 1  — AMF GUAMI, TAI, DNS, SBI timers','mop phase 2  — NRF registration, NF profile, NF discovery','mop phase 3  — SBI comm profile, SCP indirect comm, load control','mop phase 4  — N2 interface, gNB SCTP, NGAP NG Setup','mop phase 5  — SNMP/EMS traps, syslog, PM collection, NTP','mop phase 6  — Manual & scheduled backup','mop phase 7  — Call trace settings & test trace job','mop phase 8  — Post-integration verification checklist (15 items)','mop rollback  — Rollback procedure & contingency contacts','mop tutorial  — Interactive guided MOP walkthrough']],
+    ['MOP-sourced Commands',['cmm amfTai list|create|delete','cmm dnsServer show|modify','cmm sbiTimersProfile list|show|modify','cmm amfNrfStatus show','cmm amfNfProfile show','cmm amfNrfSubscriptionStatus show','cmm amfNfDiscovery list --nfType {UDM,AUSF,SMF,PCF,NSSF}','cmm amfSbiApiVersion show','cmm amfNrfDiscoveryRetry modify','cmm scpConfig show|modify --indirectCommMode {modelC,modelD}','cmm sbiLoadControl show|modify','cmm amfCapacity show','cmm amfIntfSummary show --intf n2','cmm amfLinkQueryDetail show --intf n2','cmm amfIntfAdmin show|modify --intf n2 --adminState {unlock,lock}','cmm emsTrapNotification list|create|delete','cmm syslogServer list|create|delete','cmm perfMeasJob list|create','cmm ntpServer list|create   cmm ntpStatus show','cmm backup create|list|show|restore','cmm backupSchedule create|show|delete','cmm utility nslookup --hostname <fqdn>','cmm utility http2-ping --target <fqdn> --port <port>']],
+  ];
+  sections.forEach(([title,cmds])=>{
+    emit('── '+title+' '+'─'.repeat(Math.max(0,52-title.length)),'dim');
+    cmds.forEach(c=>emit('  '+c,'info'));
+    blank();
+  });
+}
+
+function showCmdHelp(sub){
+  emit('Help: cmm '+sub,'hdr');blank();
+  emit('Commands: create, modify, delete, show, list','dim');
+  emit('Formats: -f {json,plain,table,yaml}','dim');
+  blank();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TUTORIAL
+// ═══════════════════════════════════════════════════════════════
+
+const tutorialSteps=[
+  {msg:'📚 <b>Tutorial — AMF Integration & Operations Walkthrough</b>\n\nStep 1/8: Check AMF instance and service state.\nTry: <span style="color:var(--cyan)">cmm aggregateService show</span>',hint:'cmm aggregateService'},
+  {msg:'✅ Step 2/8: Review the AMF GParms — important operational parameters.\nTry: <span style="color:var(--cyan)">cmm amfGParms show --amfGparmName n26iwkSuppt</span>',hint:'cmm amfgparms'},
+  {msg:'✅ Step 3/8: Check all active alarms.\nTry: <span style="color:var(--cyan)">cmm alarmActive list</span>',hint:'cmm alarmactive'},
+  {msg:'✅ Step 4/8: Investigate the N26 alarm definition.\nTry: <span style="color:var(--cyan)">cmm alarmDefinition show --alarmId 40122</span>',hint:'cmm alarmdefinition'},
+  {msg:'✅ Step 5/8: Check N26 link status.\nTry: <span style="color:var(--cyan)">cmm amfMultiLink list --amfIntfType N26</span>',hint:'cmm amfmultilink'},
+  {msg:'✅ Step 6/8: Start a call trace to debug a specific UE.\nTry: <span style="color:var(--cyan)">cmm callTraceJob create --userIdentity imsi --digits 302720100000001</span>',hint:'cmm calltracejob'},
+  {msg:'✅ Step 7/8: Check SBI HTTP2 connectivity to UDM.\nTry: <span style="color:var(--cyan)">cmm amfHttp2Ping list --amfClientIntf N8 --amfRmtEndIp 172.16.59.71 --amfRmtEndIpPort 8080</span>',hint:'cmm amfhttp2ping'},
+  {msg:'✅ Step 8/8: Try MD-CLI mode for Nokia SR-style config.\nTry: <span style="color:var(--cyan)">md-cli</span>  then type  <span style="color:var(--cyan)">info /configure amf endpoint</span>',hint:'md-cli'},
+  {msg:'🎉 <b>Tutorial complete!</b> You covered:\n  ✔ AMF service state inspection\n  ✔ GParms management (n26iwkSuppt, rrcInactive, etc.)\n  ✔ Full alarm investigation workflow\n  ✔ Call trace job lifecycle\n  ✔ SBI HTTP2 diagnostics\n  ✔ MD-CLI configuration mode\n\n  Type <span style="color:var(--cyan)">help</span> to explore all commands.',hint:null},
+];
+let tStep=0;
+function runTutorial(){
+  tStep=0;blank();
+  emit('─────────────────── GUIDED TUTORIAL ───────────────────────────','hdr');
+  emit(tutorialSteps[0].msg,'bright');blank();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUTOCOMPLETE
+// ═══════════════════════════════════════════════════════════════
+
+const allCmds=[
+  'cmm amfInstance show','cmm amfInstance create','cmm amfInstance modify',
+  'cmm aggregateService show','cmm aggregateService modify --amfAdminState locked','cmm aggregateService modify --amfAdminState unlocked',
+  'cmm amfGParms show --amfGparmName','cmm amfGParms list','cmm amfGParms modify --amfGparmName',
+  'cmm amfCapacityGParms show','cmm amfLcsGParms show','cmm amfLcsGParms modify',
+  'cmm amfCipheringAlgorithm show','cmm amfCipheringAlgorithm modify',
+  'cmm amfIntegrityAlgorithm show','cmm amfIntegrityAlgorithm modify',
+  'cmm amfEpsCipheringAlgorithm show','cmm amfEpsIntegrityAlgorithm show',
+  'cmm amfMultiLink list','cmm amfMultiLink show','cmm amfLinkAdmin show','cmm amfLinkAdmin modify',
+  'cmm amfConsumerLocalEndPointConfig list','cmm amfConsumerLocalEndPointConfig show','cmm amfConsumerLocalEndPointConfig create',
+  'cmm amfNotificationEndPointConfig list','cmm amfNotificationEndPointConfig create',
+  'cmm amfNgRanLocalEndPointConfig list','cmm amfNgRanLocalEndPointConfig create',
+  'cmm amfN26LocalEndPointConfig show','cmm amfN26LocalEndPointConfig create',
+  'cmm amfServicesEndPointConfig list','cmm amfServicesEndPointConfig create',
+  'cmm plmn list','cmm plmn show','cmm amfPlmn list','cmm amfPlmn create',
+  'cmm tai list','cmm tai create','cmm tai delete',
+  'cmm allowedSnssai list','cmm allowedSnssai create',
+  'cmm allowedSnssaiList list','cmm allowedSnssaiList create',
+  'cmm allowedSnssaiListItem create',
+  'cmm amfAdjacentPlmn list','cmm amfAdjacentPlmn create',
+  'cmm amfAdjacentPlmnList list','cmm amfAdjacentPlmnList create',
+  'cmm amfEplmn list','cmm amfEplmn create','cmm amfEplmnList create',
+  'cmm amfDnnOverrideProfile list','cmm amfDnnOverrideProfile create',
+  'cmm amfEmergencyProfile list','cmm amfEmergencyProfile create',
+  'cmm amfEmergencyNum create','cmm amfEmergencyNumList create',
+  'cmm ueContext list','cmm ueContext show --imsi','cmm ueContextCount list',
+  'cmm subscriber show --imsi',
+  'cmm callTraceJob list','cmm callTraceJob create','cmm callTraceJob show','cmm callTraceJob delete',
+  'cmm callTraceSetting show','cmm callTraceSetting modify',
+  'cmm traceData list','cmm traceData create','cmm traceData delete',
+  'cmm traceDataStatus list','cmm traceDataStatus show',
+  'cmm pmJob list','cmm pmJob create','cmm pmJob show','cmm pmJob modify','cmm pmJob delete',
+  'cmm pmJobMeas list','cmm pmJobMeas create','cmm pmJobMeas delete',
+  'cmm pmJobSched list','cmm pmJobSched create','cmm pmJobSched delete',
+  'cmm counter list --group','cmm counter show','cmm counterGroup definition list','cmm counterGroup definition show',
+  'cmm subnet list','cmm subnet create',
+  'cmm serviceIp list','cmm amfServiceIp list','cmm amfServiceIp create',
+  'cmm dfltGateway list','cmm dfltGateway show','cmm dfltGateway create','cmm dfltGateway delete',
+  'cmm staticRoute list','cmm staticRoute create',
+  'cmm dns show','cmm dns modify --priDnsIp',
+  'cmm ntpUpdate show config','cmm ntpUpdate modify config',
+  'cmm ntpAuthenticate create',
+  'cmm firewallRule list','cmm firewallRule create',
+  'cmm httpProfile list','cmm httpProfile show','cmm httpProfile create','cmm httpProfile modify',
+  'cmm httpProxy list','cmm httpProxy create','cmm httpProxy modify',
+  'cmm nfServiceInstance list','cmm nfServiceInstance create','cmm nfServiceInstance modify',
+  'cmm sbiCommunicationProfile list','cmm sbiCommunicationProfile create',
+  'cmm amfNrfGParms show','cmm amfNrfGParms modify',
+  'cmm alarmActive list','cmm alarmActive show','cmm alarmHistory list',
+  'cmm alarmDefinition show','cmm alarmIgnore create',
+  'cmm nbiPing list','cmm amfHttp2Ping list','cmm sbiConnectionTestUri list',
+  'cmm clusterMgmt test.ping',
+  'cmm gParms show','cmm gParms modify','cmm prometheusGW list',
+  'cmm dcaeServer list','cmm dcaeServer show','cmm dcaeServer create',
+  'cmm fluentdTcpConfig create','cmm fluentdTcpConfig list',
+  'cmm rmtEndPtCfg list','cmm rmtEndPtCfg create',
+  'cmm localEndPtCfg list','cmm localEndPtCfg create',
+  'cmm diamProfile list','cmm diamProfile create',
+  'cmm hssGrp list','cmm authenticate',
+  'cmm version',
+  'cmm amfTai list','cmm amfTai create','cmm amfTai delete',
+  'cmm dnsServer show','cmm dnsServer modify --primaryDns',
+  'cmm sbiTimersProfile list','cmm sbiTimersProfile show','cmm sbiTimersProfile modify',
+  'cmm amfNrfStatus show','cmm amfNfProfile show',
+  'cmm amfNrfSubscriptionStatus show',
+  'cmm amfNfDiscovery list --nfType UDM',
+  'cmm amfNfDiscovery list --nfType AUSF',
+  'cmm amfNfDiscovery list --nfType SMF',
+  'cmm amfNfDiscovery list --nfType PCF',
+  'cmm amfNfDiscovery list --nfType NSSF',
+  'cmm amfSbiApiVersion show',
+  'cmm amfNrfDiscoveryRetry modify',
+  'cmm scpConfig show','cmm scpConfig modify --scpFqdn',
+  'cmm sbiLoadControl show','cmm sbiLoadControl modify',
+  'cmm amfCapacity show',
+  'cmm amfIntfSummary show --intf n2',
+  'cmm amfLinkQueryDetail show --intf n2',
+  'cmm amfIntfAdmin show','cmm amfIntfAdmin modify --intf n2 --adminState unlock',
+  'cmm emsTrapNotification list','cmm emsTrapNotification show','cmm emsTrapNotification create','cmm emsTrapNotification delete',
+  'cmm syslogServer list','cmm syslogServer create','cmm syslogServer delete',
+  'cmm perfMeasJob create','cmm perfMeasJob list',
+  'cmm ntpServer create','cmm ntpServer list','cmm ntpStatus show',
+  'cmm backup create --backupName','cmm backup list','cmm backup show','cmm backup restore',
+  'cmm backupSchedule create','cmm backupSchedule show','cmm backupSchedule list','cmm backupSchedule delete',
+  'cmm utility nslookup --hostname','cmm utility http2-ping --target',
+  'ts','ts logs','ts debug','ts ue','ts alarms','ts pcmd',
+  'sudo cmm_monitor','sudo cmm_monitor -vv','sudo cmm_monitor -t vminfo -vv',
+  'sudo fns_monitor','serf leave',
+  'cmm systemInfo show','cmm system show',
+  'cmm alarm definition list','cmm alarm definition show',
+  'cmm alarm active list','cmm alarm active show','cmm alarm active cancel',
+  'cmm alarm history list --period 1h','cmm alarm history show',
+  'cmm alarmIgnore list','cmm alarmIgnore create --alarmId','cmm alarmIgnore delete --alarmId',
+  'cmm subscriber show --imsi','cmm subscriber show --amfRmState registered --radioType 5G',
+  'cmm subscriber show --amfCmState connected --radioType 5G',
+  'cmm subscriber count','cmm subscriber delete --imsi',
+  'cmm traceData create --imsi','cmm traceData delete --imsi',
+  'cmm traceDataStatus list','cmm traceDataStatus show --traceID',
+  'cmm amfPcmdConfig show','cmm amfPcmdConfig modify',
+  'cmm pcmdStreaming list','cmm pcmdStreaming create','cmm pcmdStreaming modify',
+  'cmm nbiTraceroute list --traceTarget',
+  'tcpdump -i any -s 3000 -w /tmp/capture.pcap',
+  'tail -f /var/log/app/master.log',
+  'grep',
+  'ls -la /data-pcmd/',
+  '/usr/sbin/get_debug_info --profile admin --vmlist necc,ipds',
+  '/opt/app/bin/cmmDBdump',
+  'nslookup','sftp',
+  'mop','mop phase 1','mop phase 2','mop phase 3','mop phase 4',
+  'mop phase 5','mop phase 6','mop phase 7','mop phase 8',
+  'mop rollback','mop tutorial',
+  'sudo pcs status','sudo journalctl -u',
+  'md-cli','help','tutorial','clear',
+];
+
+// ═══════════════════════════════════════════════════════════════
+// INPUT HANDLING
+// ═══════════════════════════════════════════════════════════════
+
+inp.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){
+    const v=inp.value;
+    cmdHistory.unshift(v);histIdx=-1;inp.value='';
+    // main tutorial progression
+    if(tStep>0&&tStep<tutorialSteps.length){
+      const hint=(tutorialSteps[tStep]?.hint||'').toLowerCase();
+      if(hint&&v.toLowerCase().includes(hint.replace('cmm ',''))){
+        tStep++;
+        setTimeout(()=>{
+          if(tStep<tutorialSteps.length){blank();
+            emit('─── Tutorial ──────────────────────────────────────────','dim');
+            emit(tutorialSteps[tStep].msg,'bright');blank();}
+        },350);
+      }
+    } else if(tStep===0&&v.trim().toLowerCase()==='tutorial') tStep=1;
+    // MOP tutorial progression
+    if(mopTStep>0&&mopTStep<mopTutSteps.length){
+      const hint=(mopTutSteps[mopTStep]?.hint||'').toLowerCase();
+      if(hint&&v.toLowerCase().replace('cmm ','').includes(hint.replace('cmm ',''))){
+        mopTStep++;
+        setTimeout(()=>{
+          if(mopTStep<mopTutSteps.length){blank();
+            emit('─── MOP Tutorial ────────────────────────────────────────','hdr');
+            emit(mopTutSteps[mopTStep].msg,'bright');blank();}
+        },350);
+      }
+    } else if(mopTStep===0&&v.trim().toLowerCase()==='mop tutorial') mopTStep=1;
+    dispatch(v);
+  }
+  else if(e.key==='ArrowUp'){e.preventDefault();histIdx=Math.min(histIdx+1,cmdHistory.length-1);inp.value=cmdHistory[histIdx]||'';}
+  else if(e.key==='ArrowDown'){e.preventDefault();histIdx=Math.max(histIdx-1,-1);inp.value=histIdx<0?'':cmdHistory[histIdx];}
+  else if(e.key==='Tab'){
+    e.preventDefault();
+    const v=inp.value;
+    const matches=allCmds.filter(c=>c.toLowerCase().startsWith(v.toLowerCase()));
+    if(matches.length===1){inp.value=matches[0]+' ';}
+    else if(matches.length>1){emit('[cmm@necc0 ~]$ '+v,'cmd');emit(matches.slice(0,8).join('  ')+(matches.length>8?' …':''),'dim');}
+  }
+  else if(e.key==='l'&&e.ctrlKey){e.preventDefault();out.innerHTML='';}
+});
+
+// ═══════════════════════════════════════════════════════════════
+// MOP — AMF INTEGRATION METHOD OF PROCEDURE (CMM24.3 Template)
+// ═══════════════════════════════════════════════════════════════
+
+function mopCmd(cmd) {
+  const lower = cmd.toLowerCase().trim();
+  if (lower === 'mop')                     { mopOverview(); return; }
+  if (lower === 'mop phase 1')             { mopPhase1(); return; }
+  if (lower === 'mop phase 2')             { mopPhase2(); return; }
+  if (lower === 'mop phase 3')             { mopPhase3(); return; }
+  if (lower === 'mop phase 4')             { mopPhase4(); return; }
+  if (lower === 'mop phase 5')             { mopPhase5(); return; }
+  if (lower === 'mop phase 6')             { mopPhase6(); return; }
+  if (lower === 'mop phase 7')             { mopPhase7(); return; }
+  if (lower === 'mop phase 8')             { mopPhase8(); return; }
+  if (lower === 'mop rollback')            { mopRollback(); return; }
+  if (lower === 'mop tutorial')            { mopTutorial(); return; }
+  emit('MOP commands: mop | mop phase 1-8 | mop rollback | mop tutorial', 'warn');
+}
+
+// ── MOP Overview ────────────────────────────────────────────────
+function mopOverview() {
+  emit('', 'dim');
+  emit('╔══════════════════════════════════════════════════════════════════╗', 'hdr');
+  emit('║  NOKIA CMM AMF — Integration Method of Procedure (MOP)           ║', 'hdr');
+  emit('║  Template Release CMM24.3  ·  Nokia Confidential                 ║', 'hdr');
+  emit('╚══════════════════════════════════════════════════════════════════╝', 'hdr');
+  blank();
+  emit('  Scope: AMF integration — NRF, SBI, N2/gNB, OAM/SNMP, Backup, Trace', 'info');
+  emit('  References: 3GPP TS 23.501 · TS 29.518 · TS 29.510 · TS 38.413', 'dim');
+  blank();
+  emit('  ⚠  WARNING: Perform all steps in sequence. If any verification', 'warn');
+  emit('     step fails, halt and escalate before proceeding.', 'warn');
+  blank();
+  emitTable(['Phase', 'Title', 'Key Commands'], [
+    ['1', 'AMF Infrastructure & General Params',  'amfGParms, amfTai, dnsServer, sbiTimersProfile'],
+    ['2', 'NRF Registration & NF Profile',         'amfNrfGParms, amfNrfStatus, amfNfProfile, amfNfDiscovery'],
+    ['3', 'SBI Interface Configuration',           'sbiCommProfile, scpConfig, sbiLoadControl'],
+    ['4', 'N2 Interface & gNB Link Management',    'amfIntfSummary, amfLinkQueryDetail, amfIntfAdmin'],
+    ['5', 'OAM — SNMP, Syslog, PM',               'emsTrapNotification, syslogServer, perfMeasJob, ntpServer'],
+    ['6', 'Backup Configuration',                  'backup create/list, backupSchedule'],
+    ['7', 'Call Trace & Subscriber Trace',         'callTraceSetting, callTraceJob, traceDataStatus'],
+    ['8', 'Post-Integration Verification',         'version, amfNrfStatus, amfIntfSummary, ntpStatus'],
+  ]);
+  blank();
+  emit('  Type <span style="color:var(--cyan)">mop phase 1</span> through <span style="color:var(--cyan)">mop phase 8</span> to step through each phase.', 'info');
+  emit('  Type <span style="color:var(--cyan)">mop tutorial</span> for a fully interactive guided walkthrough.', 'info');
+  blank();
+}
+
+// ── Phase 1: AMF Infrastructure ─────────────────────────────────
+function mopPhase1() {
+  emit('', 'dim');
+  emit('━━━ Phase 1: AMF Infrastructure & General Parameters ━━━━━━━━━━━━━', 'hdr');
+  blank();
+  emit('Step 1.1 — Configure AMF GUAMI and PLMN Identity', 'bright');
+  emit('  Set AMF Region ID, Set ID, Pointer, MCC, MNC.', 'dim');
+  emit('  cmm amfGParms modify --mcc <AMF_MCC> --mnc <AMF_MNC> \\', 'info');
+  emit('    --amfRegionId <AMF_REGION_ID> --amfSetId <AMF_SET_ID> \\', 'info');
+  emit('    --amfPointer <AMF_POINTER>', 'info');
+  emit('  Verify: cmm amfGParms show', 'ok');
+  blank();
+  emit('Step 1.2 — Configure TAI List / Tracking Area', 'bright');
+  emit('  cmm amfTai create --mcc <AMF_MCC> --mnc <AMF_MNC> --tac <TAC_HEX>', 'info');
+  emit('  Range provisioning: cmm amfTai create --mcc <MCC> --mnc <MNC> \\', 'info');
+  emit('    --tacStart <TAC_START> --tacEnd <TAC_END>', 'info');
+  emit('  Verify: cmm amfTai list', 'ok');
+  blank();
+  emit('Step 1.3 — Configure DNS Servers', 'bright');
+  emit('  cmm dnsServer modify --primaryDns <DNS_PRIMARY> --secondaryDns <DNS_SECONDARY>', 'info');
+  emit('  Verify: cmm utility nslookup --hostname <NRF_FQDN>', 'ok');
+  blank();
+  emit('Step 1.4 — Configure SBI Timers Profile', 'bright');
+  emit('  cmm sbiTimersProfile list', 'info');
+  emit('  cmm sbiTimersProfile modify --name <PROFILE_NAME> --releaseUeContext <TIMER_MS>', 'info');
+  emit('  Verify: cmm sbiTimersProfile show', 'ok');
+  blank();
+  emit('  ▶ Run each command then type: mop phase 2', 'dim');
+}
+
+// ── Phase 2: NRF Registration ────────────────────────────────────
+function mopPhase2() {
+  emit('', 'dim');
+  emit('━━━ Phase 2: NRF Registration & NF Profile ━━━━━━━━━━━━━━━━━━━━━━━', 'hdr');
+  blank();
+  emit('Step 2.1 — Configure NRF General Parameters', 'bright');
+  emit('  cmm amfNrfGParms modify --nrfFqdn <NRF_FQDN> --nrfPort <NRF_PORT> --nrfScheme https', 'info');
+  emit('  cmm amfNrfGParms modify --sendSubscriptionsToQueryNrf true', 'info');
+  emit('  Verify: cmm amfNrfGParms show', 'ok');
+  blank();
+  emit('Step 2.2 — Configure SBI Load Balancing for NRF', 'bright');
+  emit('  cmm amfNrfGParms modify --nrfLbMode <ROUND_ROBIN|PRIORITY> --nrfRetryCount <N>', 'info');
+  emit('  cmm amfNrfDiscoveryRetry modify --retryOn4xx true --retryOn5xx true \\', 'info');
+  emit('    --retryOnTimeout true --maxRetries <N>', 'info');
+  emit('  Verify: cmm amfNrfStatus show', 'ok');
+  blank();
+  emit('Step 2.3 — Verify AMF NF Profile Registration', 'bright');
+  emit('  cmm amfNrfStatus show', 'info');
+  emit('  cmm amfNfProfile show', 'info');
+  emit('  cmm amfNrfSubscriptionStatus show', 'info');
+  emit('  cmm amfNfDiscovery list --nfType UDM', 'info');
+  emit('  cmm amfNfDiscovery list --nfType AUSF', 'info');
+  emit('  cmm amfNfDiscovery list --nfType SMF', 'info');
+  emit('  cmm amfSbiApiVersion show', 'info');
+  emit('  Expected: Status = REGISTERED, >= 1 profile per NF type', 'ok');
+  blank();
+  emit('  ▶ Next: mop phase 3', 'dim');
+}
+
+// ── Phase 3: SBI Configuration ──────────────────────────────────
+function mopPhase3() {
+  emit('', 'dim');
+  emit('━━━ Phase 3: SBI Interface Configuration ━━━━━━━━━━━━━━━━━━━━━━━━━', 'hdr');
+  blank();
+  emit('Step 3.1 — Configure SBI Communication Profile', 'bright');
+  emit('  cmm sbiCommProfile create --name <SBI_PROFILE_NAME> \\', 'info');
+  emit('    --transportScheme https --http2MaxStreams <N> --connectionPoolSize <N>', 'info');
+  emit('  Verify: cmm sbiCommProfile show <SBI_PROFILE_NAME>', 'ok');
+  blank();
+  emit('Step 3.2 — Configure Indirect Communication / SCP (Optional)', 'bright');
+  emit('  Model C (no delegated discovery):', 'dim');
+  emit('  cmm scpConfig modify --scpFqdn <SCP_FQDN> --scpPort <SCP_PORT> --indirectCommMode modelC', 'info');
+  emit('  Model D (delegated discovery):', 'dim');
+  emit('  cmm scpConfig modify --indirectCommMode modelD --scpFqdn <SCP_FQDN>', 'info');
+  emit('  Verify: cmm utility http2-ping --target <SCP_FQDN> --port <SCP_PORT>', 'ok');
+  blank();
+  emit('Step 3.3 — Configure SBI Load and Overload Control', 'bright');
+  emit('  cmm sbiLoadControl modify --overloadReduction <PERCENT> --cpuThreshold <PERCENT>', 'info');
+  emit('  Verify: cmm amfCapacity show', 'ok');
+  blank();
+  emit('  ▶ Next: mop phase 4', 'dim');
+}
+
+// ── Phase 4: N2 / gNB ───────────────────────────────────────────
+function mopPhase4() {
+  emit('', 'dim');
+  emit('━━━ Phase 4: N2 Interface & gNB Link Management ━━━━━━━━━━━━━━━━━━', 'hdr');
+  blank();
+  emit('Step 4.1 — Verify N2 Interface Status', 'bright');
+  emit('  cmm amfIntfSummary show --intf n2', 'info');
+  emit('  cmm serviceIp list --niType N2', 'info');
+  emit('  Expected: N2 interface UP, Service IP bound.', 'ok');
+  blank();
+  emit('Step 4.2 — Configure gNB NGAP Link', 'bright');
+  emit('  Note: AMF is SCTP server — gNBs initiate association.', 'dim');
+  emit('  cmm amfLinkQueryDetail show --intf n2', 'info');
+  emit('  cmm amfLinkAdmin show --intf n2', 'info');
+  emit('  # Unlock N2 interface if currently locked:', 'dim');
+  emit('  cmm amfIntfAdmin modify --intf n2 --adminState unlock', 'info');
+  emit('  Expected: SCTP association = ESTABLISHED', 'ok');
+  blank();
+  emit('Step 4.3 — Verify NGAP NG Setup Procedure', 'bright');
+  emit('  # Enable call trace to capture NG Setup:', 'dim');
+  emit('  cmm callTraceJob create --userIdentity imsi --digits <TEST_IMSI>', 'info');
+  emit('  cmm amfMultilink show --intf n2', 'info');
+  emit('  cmm traceDataStatus show', 'info');
+  emit('  Expected: NG Setup Request from gNB + NG Setup Response from AMF captured.', 'ok');
+  emit('  Note: Multiple TNLAs per gNB supported (f20074-01). Verify with amfMultilink.', 'dim');
+  blank();
+  emit('  ▶ Next: mop phase 5', 'dim');
+}
+
+// ── Phase 5: OAM ────────────────────────────────────────────────
+function mopPhase5() {
+  emit('', 'dim');
+  emit('━━━ Phase 5: OAM — SNMP, Syslog & Performance Management ━━━━━━━━━', 'hdr');
+  blank();
+  emit('Step 5.1 — Configure SNMP Trap Forwarding to EMS/NFM-M', 'bright');
+  emit('  cmm emsTrapNotification create \\', 'info');
+  emit('    --emsHost <NMS_IP> --emsPort <SNMP_PORT> \\', 'info');
+  emit('    --userName cmm_privUser --userSecLevel 3 \\', 'info');
+  emit('    --contextName \' \' --rowStatus 1', 'info');
+  emit('  Verify: cmm emsTrapNotification show <NMS_IP>~<SNMP_PORT>', 'ok');
+  emit('  CNF only: cmm serviceIp create --poolType ALMS --poolId 0 --poolMemberId 0 \\', 'dim');
+  emit('    --subnetLoc external --assignmentType fixed --niType ALMS_ACCESS --svcIp <IP>', 'dim');
+  blank();
+  emit('Step 5.2 — Configure Syslog Streaming', 'bright');
+  emit('  cmm syslogServer create --syslogHost <SYSLOG_SERVER_IP> --syslogPort 514 --protocol udp', 'info');
+  emit('  Verify: cmm syslogServer list', 'ok');
+  blank();
+  emit('Step 5.3 — Configure Performance Management (PM) Collection', 'bright');
+  emit('  cmm perfMeasJob create --granPeriod 300 --repPeriod 900 --adminState unlocked', 'info');
+  emit('  cmm counterGroup list', 'info');
+  emit('  cmm counter show --counterGroup VS', 'info');
+  emit('  Expected: PM XML files at /opt/cmm/pm/. VS.avePerCoreCpuUsage > 0 < 80%.', 'ok');
+  blank();
+  emit('Step 5.4 — Configure & Authenticate NTP Server', 'bright');
+  emit('  cmm ntpServer create --ntpHost <NTP_SERVER_IP> --keyId <KEY_ID> --authKey <AUTH_KEY>', 'info');
+  emit('  Verify: cmm ntpStatus show', 'ok');
+  emit('  Expected: Status = SYNCHRONIZED. Clock drift < 1ms.', 'ok');
+  blank();
+  emit('  ▶ Next: mop phase 6', 'dim');
+}
+
+// ── Phase 6: Backup ─────────────────────────────────────────────
+function mopPhase6() {
+  emit('', 'dim');
+  emit('━━━ Phase 6: Backup Configuration ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'hdr');
+  blank();
+  emit('Step 6.1 — Perform Manual Configuration Backup', 'bright');
+  emit('  cmm backup create \\', 'info');
+  emit("    --backupName AMF_Integration_<DATE> \\", 'info');
+  emit("    --description 'Post-integration baseline backup'", 'info');
+  emit('  cmm backup list', 'info');
+  emit('  cmm backup show --backupName AMF_Integration_<DATE>', 'info');
+  emit('  Expected: Backup status = COMPLETED.', 'ok');
+  blank();
+  emit('Step 6.2 — Configure Scheduled Backup', 'bright');
+  emit('  cmm backupSchedule create \\', 'info');
+  emit("    --scheduleName daily-backup --cronExpr '0 2 * * *' --retentionCount 7", 'info');
+  emit('  Verify: cmm backupSchedule show --scheduleName daily-backup', 'ok');
+  emit('  Expected: Schedule ACTIVE. Next execution time visible.', 'ok');
+  blank();
+  emit('  ▶ Next: mop phase 7', 'dim');
+}
+
+// ── Phase 7: Call Trace ─────────────────────────────────────────
+function mopPhase7() {
+  emit('', 'dim');
+  emit('━━━ Phase 7: Call Trace & Subscriber Trace ━━━━━━━━━━━━━━━━━━━━━━━', 'hdr');
+  blank();
+  emit('  Max 100 simultaneous traces. Max duration 4 days. (3GPP TS 32.422)', 'dim');
+  blank();
+  emit('Step 7.1 — Verify Call Trace Interface Settings', 'bright');
+  emit('  cmm callTraceSetting show', 'info');
+  emit('  # Enable all 5G interfaces:', 'dim');
+  emit('  cmm callTraceSetting modify --n2 true --n11 true --n12 true --n8 true', 'info');
+  emit('  Expected: n2, n11, n12, n8, nnrf all = true.', 'ok');
+  blank();
+  emit('Step 7.2 — Create Test Call Trace Job', 'bright');
+  emit('  cmm callTraceJob create --userIdentity imsi --digits <TEST_IMSI> --mode debug', 'info');
+  emit('  cmm callTraceJob list', 'info');
+  emit('  cmm callTraceJob show --userIdentity imsi --digits <TEST_IMSI>', 'info');
+  emit('  cmm traceDataStatus show', 'info');
+  emit('  cmm traceData show --userIdentity imsi --digits <TEST_IMSI>', 'info');
+  emit('  Expected: After test UE registers: NAS Registration + NGAP Initial UE Message captured.', 'ok');
+  emit('  Rollback: cmm callTraceJob delete --userIdentity imsi --digits <TEST_IMSI>', 'warn');
+  blank();
+  emit('  ▶ Next: mop phase 8', 'dim');
+}
+
+// ── Phase 8: Post-Integration Verification ──────────────────────
+function mopPhase8() {
+  emit('', 'dim');
+  emit('━━━ Phase 8: Post-Integration Verification Checklist ━━━━━━━━━━━━━', 'hdr');
+  blank();
+  emit('  All checks must PASS before closing the maintenance window.', 'warn');
+  blank();
+  emitTable(['#', 'Command', 'Expected Result', 'Status'], [
+    ['8.1',  'cmm version',                                             'CMM24.3',             {v:'□ PENDING', c:'dim'}],
+    ['8.2',  'cmm amfGParms show (MCC/MNC/RegionId/SetId/Pointer)',     'Matches planned',     {v:'□ PENDING', c:'dim'}],
+    ['8.3',  'cmm amfTai list',                                         'All TACs present',    {v:'□ PENDING', c:'dim'}],
+    ['8.4',  'cmm amfNrfStatus show',                                   'REGISTERED',          {v:'□ PENDING', c:'dim'}],
+    ['8.5',  'cmm amfNfDiscovery list --nfType UDM',                    '>= 1 UDM profile',    {v:'□ PENDING', c:'dim'}],
+    ['8.6',  'cmm amfNfDiscovery list --nfType AUSF',                   '>= 1 AUSF profile',   {v:'□ PENDING', c:'dim'}],
+    ['8.7',  'cmm amfNfDiscovery list --nfType SMF',                    '>= 1 SMF profile',    {v:'□ PENDING', c:'dim'}],
+    ['8.8',  'cmm amfIntfSummary show --intf n2',                       'N2 = UP / IN-SERVICE',{v:'□ PENDING', c:'dim'}],
+    ['8.9',  'cmm amfLinkQueryDetail show --intf n2',                   'SCTP = ESTABLISHED',  {v:'□ PENDING', c:'dim'}],
+    ['8.10', 'cmm emsTrapNotification show',                            'EMS entry visible',   {v:'□ PENDING', c:'dim'}],
+    ['8.11', 'SNMP trap reception on NFM-M/EMS (manual)',               'Trap received',       {v:'□ PENDING', c:'dim'}],
+    ['8.12', 'cmm ntpStatus show',                                      'SYNCHRONIZED',        {v:'□ PENDING', c:'dim'}],
+    ['8.13', 'cmm backup list',                                         'Backup = COMPLETED',  {v:'□ PENDING', c:'dim'}],
+    ['8.14', 'Test UE registration (manual)',                           'Registered/5G-GUTI',  {v:'□ PENDING', c:'dim'}],
+    ['8.15', 'VS.avePerCoreCpuUsage counter',                           'Value > 0, < 80%',    {v:'□ PENDING', c:'dim'}],
+  ]);
+  blank();
+  emit('  Run: cmm version | cmm amfNrfStatus show | cmm amfIntfSummary show --intf n2', 'cyan');
+  emit('  If any check fails: halt, escalate, consider mop rollback.', 'warn');
+  blank();
+}
+
+// ── Rollback ────────────────────────────────────────────────────
+function mopRollback() {
+  emit('', 'dim');
+  emit('╔══════════════════════════════════════════════════════════════════╗', 'err');
+  emit('║  ⚠  ROLLBACK PROCEDURE  —  Requires Change Manager approval     ║', 'err');
+  emit('╚══════════════════════════════════════════════════════════════════╝', 'err');
+  blank();
+  emit('  Decision Criteria (rollback if ANY of the following):', 'warn');
+  emit('  • Phase 8 verification fails and root cause unknown after 30 min', 'warn');
+  emit('  • Active alarms MAJOR/CRITICAL that cannot be cleared', 'warn');
+  emit('  • NRF registration failure persisting after troubleshooting', 'warn');
+  emit('  • No gNB SCTP associations after N2 unlock', 'warn');
+  emit('  • Test UE registration failure after GUAMI/TAI confirmed', 'warn');
+  blank();
+  emit('  Rollback Steps:', 'bright');
+  emit('  1. Notify Change Manager and all stakeholders', 'info');
+  emit('  2. cmm backup restore --backupName <PRE_INTEGRATION_BACKUP>', 'info');
+  emit('  3. Verify parameters reverted to pre-integration state', 'info');
+  emit('  4. Confirm gNB associations reconnect (if previously established)', 'info');
+  emit('  5. Confirm NRF registration status', 'info');
+  emit('  6. Clear alarms and confirm clean alarm state: cmm alarmActive list', 'info');
+  emit('  7. Document all actions, timestamps, and observations', 'info');
+  blank();
+  emit('  Contingency Contacts:', 'dim');
+  emitTable(['Scenario', 'Action', 'Escalate To'], [
+    ['NRF registration fails',       'Check SBI connectivity, TLS certs, NRF profile template',         '<NOKIA_SE_CONTACT>'],
+    ['gNB SCTP not established',     'Verify N2 IP, VLAN, MTU (up to 2000B), SCTP routing',             '<NETWORK_TEAM>'],
+    ['SNMP traps not received',      'Verify EMS IP, port, SNMPv3 creds, firewall rules',               '<EMS_TEAM>'],
+    ['PM counters not incrementing', 'Check NTP sync, PM job admin state, disk space',                  '<NOKIA_SE_CONTACT>'],
+    ['Backup fails',                 'Check disk space and backup directory permissions',               '<NOKIA_SE_CONTACT>'],
+    ['Test UE fails to register',    'Check GUAMI, TAI, UDM/AUSF discovery, NAS trace',                 '<NOKIA_SE_CONTACT>'],
+  ]);
+  blank();
+}
+
+// ── MOP Tutorial ────────────────────────────────────────────────
+let mopTStep = 0;
+const mopTutSteps = [
+  { msg: '🔧 <b>MOP Integration Walkthrough — 8 Phases</b>\n\n  Step 1/8 — Phase 1: Configure AMF identity.\n  Try: <span style="color:var(--cyan)">cmm amfGParms show</span>  (shows current GUAMI params)', hint: 'cmm amfgparms' },
+  { msg: '✅ Phase 1 checked.\n\n  Step 2/8 — Phase 1: Review TAI list.\n  Try: <span style="color:var(--cyan)">cmm amfTai list</span>', hint: 'cmm amftai' },
+  { msg: '✅ TAI verified.\n\n  Step 3/8 — Phase 2: Check NRF registration.\n  Try: <span style="color:var(--cyan)">cmm amfNrfStatus show</span>', hint: 'cmm amfnrfstatus' },
+  { msg: '✅ NRF status checked.\n\n  Step 4/8 — Phase 2: Discover NF profiles.\n  Try: <span style="color:var(--cyan)">cmm amfNfDiscovery list --nfType UDM</span>', hint: 'cmm amfnfdiscovery' },
+  { msg: '✅ NF discovery checked.\n\n  Step 5/8 — Phase 4: Verify N2 interface.\n  Try: <span style="color:var(--cyan)">cmm amfIntfSummary show --intf n2</span>', hint: 'cmm amfintfsummary' },
+  { msg: '✅ N2 interface verified.\n\n  Step 6/8 — Phase 5: Check SNMP trap config.\n  Try: <span style="color:var(--cyan)">cmm emsTrapNotification list</span>', hint: 'cmm emstrapnotification' },
+  { msg: '✅ OAM checked.\n\n  Step 7/8 — Phase 6: Verify backup.\n  Try: <span style="color:var(--cyan)">cmm backup list</span>', hint: 'cmm backup' },
+  { msg: '✅ Backup verified.\n\n  Step 8/8 — Phase 8: Run final verification checklist.\n  Try: <span style="color:var(--cyan)">mop phase 8</span>', hint: 'mop phase 8' },
+  { msg: '🎉 <b>MOP Walkthrough Complete!</b>\n  All 8 integration phases covered.\n\n  For a full integration run, type <span style="color:var(--cyan)">mop</span> to see the overview\n  or use the sidebar to jump to any phase.\n\n  Type <span style="color:var(--cyan)">mop rollback</span> to review the rollback procedure.', hint: null },
+];
+
+function mopTutorial() {
+  mopTStep = 0;
+  blank();
+  emit('─────────────────── MOP INTEGRATION TUTORIAL ─────────────────────', 'hdr');
+  emit(mopTutSteps[0].msg, 'bright');
+  blank();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NEW MOP-SOURCED COMMANDS
+// ═══════════════════════════════════════════════════════════════
+
+function amfTaiCmd(cmd, args) {
+  const action = (args[1] || '').toLowerCase();
+  if (action === 'create') {
+    const mcc = getArg(cmd, '--mcc'); const mnc = getArg(cmd, '--mnc');
+    const tac = getArg(cmd, '--tac'); const ts = getArg(cmd, '--tacStart'); const te = getArg(cmd, '--tacEnd');
+    if (ts && te) { emit('amfTai created (range): MCC=' + mcc + ' MNC=' + mnc + ' TAC ' + ts + '–' + te, 'ok'); }
+    else { emit('amfTai created: MCC=' + mcc + ' MNC=' + mnc + ' TAC=' + tac, 'ok'); }
+    return;
+  }
+  if (action === 'delete') { emit('amfTai deleted.', 'ok'); return; }
+  emit('AMF TAI Configuration (amfTai)', 'hdr'); blank();
+  emitTable(['mcc', 'mnc', 'tac', 'description'], [
+    ['302', '720', '0x1001', 'Toronto Downtown'],
+    ['302', '720', '0x1002', 'Toronto East'],
+    ['302', '720', '0x1003', 'Toronto West'],
+    ['302', '720', '0x2001', 'Vancouver Core'],
+    ['302', '720', '0x3001', 'Montreal'],
+    ['302', '720', '0x4001', 'Calgary'],
+    ['302', '720', '0x5001', 'Ottawa'],
+  ]);
+  blank();
+}
+
+function dnsServer(cmd, args) {
+  if (cmd.toLowerCase().includes('modify')) {
+    const p = getArg(cmd, '--primaryDns'); const s = getArg(cmd, '--secondaryDns');
+    emit('dnsServer modified: primary=' + p + ' secondary=' + s, 'ok'); return;
+  }
+  emit('DNS Server Configuration', 'hdr'); blank();
+  emitTable(['Field', 'Value'], [
+    ['primaryDns', '10.121.1.2'], ['secondaryDns', '10.121.1.3'],
+    ['status', {v:'reachable', c:'ok'}],
+  ]); blank();
+}
+
+function sbiTimersProfile(cmd, args) {
+  const action = (args[1] || '').toLowerCase();
+  if (action === 'modify') { emit('sbiTimersProfile modified: ' + getArg(cmd, '--name'), 'ok'); return; }
+  if (action === 'show') {
+    const n = getArg(cmd, '--name') || args[2] || 'default';
+    emit('sbiTimersProfile · ' + n, 'hdr'); blank();
+    emitTable(['Field', 'Value'], [
+      ['name', n], ['releaseUeContext', '10000ms'], ['n11Timer', '5000ms'],
+      ['n8Timer', '5000ms'], ['n12Timer', '5000ms'],
+    ]); blank(); return;
+  }
+  emit('SBI Timers Profiles', 'hdr'); blank();
+  emitTable(['name', 'releaseUeContext', 'n11Timer', 'n8Timer'], [
+    ['default', '10000ms', '5000ms', '5000ms'],
+    ['strict', '5000ms', '3000ms', '3000ms'],
+  ]); blank();
+}
+
+function amfNrfStatus(cmd, args) {
+  emit('AMF NRF Registration Status', 'hdr'); blank();
+  emitTable(['Field', 'Value'], [
+    ['registrationStatus', {v: 'REGISTERED', c: 'ok'}],
+    ['nrfFqdn', 'nrf.5gc.bell.ca'],
+    ['nrfPort', '8443'],
+    ['nrfScheme', 'https'],
+    ['lastRegistration', '2024-11-14T14:00:00Z'],
+    ['heartbeatTimer', '30s'],
+    ['nextHeartbeat', '2024-11-14T14:30:30Z'],
+    ['registrationExpiry', '2024-11-15T14:00:00Z'],
+    ['sendSubscriptionsToQueryNrf', {v: 'true', c: 'ok'}],
+  ]); blank();
+}
+
+function amfNfProfile(cmd, args) {
+  emit('AMF NF Profile (as registered with NRF)', 'hdr'); blank();
+  emitTable(['Field', 'Value'], [
+    ['nfInstanceId', 'amf-302720-01-01-01'],
+    ['nfType', 'AMF'],
+    ['nfStatus', {v: 'REGISTERED', c: 'ok'}],
+    ['plmn', '302-720'],
+    ['guami', '302720.01.01.01'],
+    ['amfRegionId', '1'],
+    ['amfSetId', '1'],
+    ['amfPointer', '1'],
+    ['allowedNssais', 'SST=1/SD=D143A5, SST=2/SD=FFFFFF'],
+    ['relativeCapacity', '128'],
+    ['ipv4Addresses', '172.16.46.202'],
+  ]); blank();
+}
+
+function amfNrfSubscriptionStatus(cmd, args) {
+  emit('NRF Subscription Status', 'hdr'); blank();
+  emitTable(['nfType', 'subscriptionStatus', 'subscriptionExpiry', 'notifyUri'], [
+    ['UDM',  {v:'ACTIVE',c:'ok'}, '2024-11-21T14:00:00Z', 'https://172.16.46.202/nudm-notify'],
+    ['AUSF', {v:'ACTIVE',c:'ok'}, '2024-11-21T14:00:00Z', 'https://172.16.46.202/nausf-notify'],
+    ['SMF',  {v:'ACTIVE',c:'ok'}, '2024-11-21T14:00:00Z', 'https://172.16.46.202/nsmf-notify'],
+    ['PCF',  {v:'ACTIVE',c:'ok'}, '2024-11-21T14:00:00Z', 'https://172.16.46.202/npcf-notify'],
+    ['NSSF', {v:'ACTIVE',c:'ok'}, '2024-11-21T14:00:00Z', 'https://172.16.46.202/nnssf-notify'],
+  ]); blank();
+}
+
+function amfNfDiscovery(cmd, args) {
+  const nfType = getArg(cmd, '--nfType') || 'UDM';
+  emit('NF Discovery Results · nfType=' + nfType, 'hdr'); blank();
+  const profiles = {
+    UDM:  [['udm-instance-1','172.16.59.71','8080',{v:'REGISTERED',c:'ok'},'302-720'],
+            ['udm-instance-2','172.16.59.72','8080',{v:'REGISTERED',c:'ok'},'302-720']],
+    AUSF: [['ausf-instance-1','172.16.59.61','8080',{v:'REGISTERED',c:'ok'},'302-720']],
+    SMF:  [['smf-instance-1','172.16.59.51','8080',{v:'REGISTERED',c:'ok'},'302-720'],
+            ['smf-instance-2','172.16.59.52','8080',{v:'REGISTERED',c:'ok'},'302-720']],
+    PCF:  [['pcf-instance-1','172.16.59.41','8080',{v:'REGISTERED',c:'ok'},'302-720']],
+    NSSF: [['nssf-instance-1','172.16.59.81','8080',{v:'REGISTERED',c:'ok'},'302-720']],
+    NRF:  [['nrf-instance-1','172.16.59.91','8443',{v:'REGISTERED',c:'ok'},'302-720']],
+  };
+  const rows = profiles[nfType] || [['No profiles discovered for ' + nfType, '', '', {v:'NONE',c:'warn'}, '']];
+  emitTable(['nfInstanceId', 'ipv4Address', 'port', 'nfStatus', 'plmn'], rows);
+  blank();
+  emit('Total profiles discovered: ' + (profiles[nfType] ? profiles[nfType].length : 0), 'dim');
+}
+
+function amfSbiApiVersion(cmd, args) {
+  emit('SBI API Versions (AMF)', 'hdr'); blank();
+  emitTable(['nfType', 'serviceName', 'apiVersion', 'status'], [
+    ['AMF',  'Namf_Communication',  'v1', {v:'active',c:'ok'}],
+    ['AMF',  'Namf_EventExposure',  'v1', {v:'active',c:'ok'}],
+    ['AMF',  'Namf_Location',       'v1', {v:'active',c:'ok'}],
+    ['UDM',  'Nudm_SDM',            'v2', {v:'active',c:'ok'}],
+    ['SMF',  'Nsmf_PDUSession',     'v1', {v:'active',c:'ok'}],
+    ['AUSF', 'Nausf_UEAuthentication','v1',{v:'active',c:'ok'}],
+  ]); blank();
+}
+
+function amfNrfDiscoveryRetry(cmd, args) {
+  if (cmd.toLowerCase().includes('modify')) {
+    emit('amfNrfDiscoveryRetry modified.', 'ok'); return;
+  }
+  emit('NRF Discovery Retry Configuration', 'hdr'); blank();
+  emitTable(['Field', 'Value'], [
+    ['retryOn4xx', {v:'true',c:'ok'}], ['retryOn5xx', {v:'true',c:'ok'}],
+    ['retryOnTimeout', {v:'true',c:'ok'}], ['maxRetries', '3'],
+  ]); blank();
+}
+
+function scpConfig(cmd, args) {
+  if (cmd.toLowerCase().includes('modify')) {
+    const fqdn = getArg(cmd, '--scpFqdn'); const mode = getArg(cmd, '--indirectCommMode');
+    emit('scpConfig modified: fqdn=' + fqdn + ' mode=' + mode, 'ok'); return;
+  }
+  emit('SCP Configuration', 'hdr'); blank();
+  emitTable(['Field', 'Value'], [
+    ['scpFqdn', 'scp.5gc.bell.ca'], ['scpPort', '443'],
+    ['indirectCommMode', {v:'modelC',c:'ok'}], ['scpScheme', 'https'],
+  ]); blank();
+}
+
+function sbiLoadControl(cmd, args) {
+  if (cmd.toLowerCase().includes('modify')) {
+    emit('sbiLoadControl modified.', 'ok'); return;
+  }
+  emit('SBI Load & Overload Control', 'hdr'); blank();
+  emitTable(['Field', 'Value'], [
+    ['overloadReduction', '50%'], ['cpuThreshold', '80%'],
+    ['loadControlEnabled', {v:'true',c:'ok'}], ['currentCpuLoad', {v:'34%',c:'ok'}],
+  ]); blank();
+}
+
+function amfCapacityShow(cmd, args) {
+  emit('AMF Capacity Status', 'hdr'); blank();
+  emitTable(['Field', 'Value'], [
+    ['relativeCapacity', {v:'128',c:'ok'}],
+    ['currentLoadLevel', {v:'34%',c:'ok'}],
+    ['overloadStatus', {v:'NORMAL',c:'ok'}],
+    ['activeCpps', '3'], ['protectedCpps', '1'],
+    ['activeIpdsPools', '2'],
+  ]); blank();
+}
+
+function amfIntfSummary(cmd, args) {
+  const intf = getArg(cmd, '--intf') || 'n2';
+  emit('AMF Interface Summary · ' + intf.toUpperCase(), 'hdr'); blank();
+  if (intf.toLowerCase() === 'n2') {
+    emitTable(['Field', 'Value'], [
+      ['interface', 'N2 (NGAP)'],
+      ['operState', {v:'UP / IN-SERVICE', c:'ok'}],
+      ['adminState', {v:'unlocked', c:'ok'}],
+      ['totalLinks', '9'],
+      ['activeLinks', {v:'9', c:'ok'}],
+      ['failedLinks', {v:'0', c:'ok'}],
+      ['sctpAssociations', {v:'ESTABLISHED', c:'ok'}],
+      ['serviceIp', '172.16.46.201'],
+      ['port', '36412'],
+    ]);
+  } else {
+    emitTable(['Field', 'Value'], [
+      ['interface', intf.toUpperCase()],
+      ['operState', {v:'UP', c:'ok'}],
+      ['adminState', {v:'unlocked', c:'ok'}],
+    ]);
+  }
+  blank();
+}
+
+function amfLinkQueryDetail(cmd, args) {
+  const intf = getArg(cmd, '--intf') || 'n2';
+  emit('AMF Link Query Detail · ' + intf.toUpperCase(), 'hdr'); blank();
+  emitTable(['gnbId', 'remoteIp', 'sctpState', 'ngSetupState', 'tnlaCount', 'lastActivity'], [
+    ['172.16.59.11', '172.16.59.11', {v:'ESTABLISHED',c:'ok'}, {v:'IN-SERVICE',c:'ok'}, '2', '14:45:02'],
+    ['172.16.59.12', '172.16.59.12', {v:'ESTABLISHED',c:'ok'}, {v:'IN-SERVICE',c:'ok'}, '1', '14:44:58'],
+    ['172.16.59.13', '172.16.59.13', {v:'ESTABLISHED',c:'ok'}, {v:'IN-SERVICE',c:'ok'}, '1', '14:44:55'],
+    ['172.16.59.14', '172.16.59.14', {v:'ESTABLISHED',c:'ok'}, {v:'IN-SERVICE',c:'ok'}, '2', '14:44:50'],
+    ['172.16.59.15', '172.16.59.15', {v:'ESTABLISHED',c:'ok'}, {v:'IN-SERVICE',c:'ok'}, '1', '14:44:48'],
+    ['172.16.59.91', '172.16.59.91', {v:'INIT_SENT',c:'warn'},  {v:'PENDING',c:'warn'},  '0', '14:32:01'],
+  ]);
+  blank();
+  emit('Note: Multiple TNLAs per gNB supported via Feature f20074-01.', 'dim');
+}
+
+function amfIntfAdmin(cmd, args) {
+  const action = (args[1] || '').toLowerCase();
+  if (action === 'modify') {
+    const intf = getArg(cmd, '--intf') || 'n2';
+    const state = getArg(cmd, '--adminState') || 'unlock';
+    emit('amfIntfAdmin modify: intf=' + intf + ' adminState=' + state, 'ok');
+    if (state === 'unlock') emit('N2 interface unlocked — gNBs may now initiate SCTP associations.', 'dim');
+    if (state === 'lock')   emit('WARNING: Locking N2 will disconnect all gNBs.', 'warn');
+    return;
+  }
+  emit('amfIntfAdmin list', 'hdr'); blank();
+  emitTable(['intf', 'adminState', 'operState'], [
+    ['n2',  {v:'unlocked',c:'ok'}, {v:'UP',c:'ok'}],
+    ['n26', {v:'unlocked',c:'ok'}, {v:'degraded',c:'warn'}],
+  ]); blank();
+}
+
+function emsTrapNotification(cmd, args) {
+  const action = (args[1] || '').toLowerCase();
+  if (action === 'create') {
+    const host = getArg(cmd, '--emsHost'); const port = getArg(cmd, '--emsPort');
+    emit('emsTrapNotification created: ' + host + ':' + port + ' SNMPv3 rowStatus=1', 'ok'); return;
+  }
+  if (action === 'delete') { emit('emsTrapNotification deleted.', 'ok'); return; }
+  if (action === 'show' || action === 'list' || !action) {
+    const entry = args[2] || '';
+    emit('SNMP EMS Trap Notification' + (entry ? ' · ' + entry : ' List'), 'hdr'); blank();
+    emitTable(['emsHost', 'emsPort', 'userName', 'userSecLevel', 'rowStatus', 'trapStatus'], [
+      ['172.16.100.50', '162', 'cmm_privUser', '3 (authPriv)', {v:'active',c:'ok'}, {v:'sending',c:'ok'}],
+    ]); blank();
+  }
+}
+
+function syslogServer(cmd, args) {
+  const action = (args[1] || '').toLowerCase();
+  if (action === 'create') {
+    const h = getArg(cmd, '--syslogHost'); const p = getArg(cmd, '--syslogPort') || '514';
+    emit('syslogServer created: ' + h + ':' + p, 'ok'); return;
+  }
+  if (action === 'delete') { emit('syslogServer deleted.', 'ok'); return; }
+  emit('Syslog Servers', 'hdr'); blank();
+  emitTable(['syslogHost', 'syslogPort', 'protocol', 'status'], [
+    ['10.50.100.10', '514', 'udp', {v:'active',c:'ok'}],
+  ]); blank();
+}
+
+function perfMeasJob(cmd, args) {
+  const action = (args[1] || '').toLowerCase();
+  if (action === 'create') {
+    const gp = getArg(cmd, '--granPeriod') || '300';
+    const rp = getArg(cmd, '--repPeriod') || '900';
+    emit('perfMeasJob created: granPeriod=' + gp + 's repPeriod=' + rp + 's adminState=unlocked', 'ok'); return;
+  }
+  emit('Performance Measurement Jobs', 'hdr'); blank();
+  emitTable(['jobId', 'granPeriod', 'repPeriod', 'adminState', 'status'], [
+    ['1', '300s', '900s', {v:'unlocked',c:'ok'}, {v:'active',c:'ok'}],
+    ['2', '900s', '900s', {v:'unlocked',c:'ok'}, {v:'active',c:'ok'}],
+  ]); blank();
+}
+
+function ntpServer(cmd, args) {
+  const action = (args[1] || '').toLowerCase();
+  if (action === 'create') {
+    const h = getArg(cmd, '--ntpHost');
+    emit('ntpServer created: host=' + h, 'ok'); return;
+  }
+  if (action === 'modify') { emit('ntpServer modified.', 'ok'); return; }
+  emit('NTP Servers', 'hdr'); blank();
+  emitTable(['ntpHost', 'keyId', 'status'], [
+    ['11.22.255.123', '1', {v:'synced',c:'ok'}],
+    ['11.22.255.124', '2', {v:'standby',c:'dim'}],
+  ]); blank();
+}
+
+function ntpStatus(cmd, args) {
+  emit('NTP Synchronization Status', 'hdr'); blank();
+  emitTable(['Field', 'Value'], [
+    ['syncStatus',    {v:'SYNCHRONIZED', c:'ok'}],
+    ['server',        '11.22.255.123'],
+    ['stratum',       '2'],
+    ['clockDrift',    {v:'0.42ms', c:'ok'}],
+    ['referenceTime', '2024-11-14T14:44:50Z'],
+    ['pollInterval',  '64s'],
+  ]); blank();
+}
+
+function backupCmd(cmd, args) {
+  const action = (args[1] || '').toLowerCase();
+  if (action === 'create') {
+    const n = getArg(cmd, '--backupName');
+    const d = getArg(cmd, '--description');
+    emit('Backup initiated: ' + n, 'ok');
+    emit('... collecting configuration snapshot ...', 'dim');
+    emit('Backup status: COMPLETED. File: /data-backup/' + n + '.tar.gz', 'ok');
+    return;
+  }
+  if (action === 'restore') {
+    const n = getArg(cmd, '--backupName');
+    emit('WARNING: Restoring backup ' + n + '. All current config will be replaced.', 'warn');
+    emit('Restore initiated ...', 'dim');
+    emit('Restore COMPLETED. System will reload configuration.', 'ok');
+    return;
+  }
+  if (action === 'show') {
+    const n = getArg(cmd, '--backupName') || args[2];
+    emit('Backup · ' + n, 'hdr'); blank();
+    emitTable(['Field', 'Value'], [
+      ['backupName', n], ['status', {v:'COMPLETED',c:'ok'}],
+      ['created', '2024-11-14T15:00:00Z'], ['size', '48.2 MB'],
+      ['location', '/data-backup/' + n + '.tar.gz'],
+    ]); blank(); return;
+  }
+  emit('Configuration Backups', 'hdr'); blank();
+  emitTable(['backupName', 'status', 'created', 'size'], [
+    ['AMF_Integration_20241114', {v:'COMPLETED',c:'ok'}, '2024-11-14T15:00:00Z', '48.2 MB'],
+    ['AMF_PreIntegration_20241113', {v:'COMPLETED',c:'ok'}, '2024-11-13T08:00:00Z', '47.8 MB'],
+    ['daily-backup-20241112', {v:'COMPLETED',c:'ok'}, '2024-11-12T02:00:00Z', '47.5 MB'],
+  ]); blank();
+}
+
+function backupSchedule(cmd, args) {
+  const action = (args[1] || '').toLowerCase();
+  if (action === 'create') {
+    const n = getArg(cmd, '--scheduleName'); const c = getArg(cmd, '--cronExpr'); const r = getArg(cmd, '--retentionCount');
+    emit('backupSchedule created: ' + n + ' cron="' + c + '" retention=' + r, 'ok'); return;
+  }
+  if (action === 'delete') { emit('backupSchedule deleted: ' + getArg(cmd, '--scheduleName'), 'ok'); return; }
+  if (action === 'show') {
+    const n = getArg(cmd, '--scheduleName') || args[2];
+    emit('backupSchedule · ' + n, 'hdr'); blank();
+    emitTable(['Field', 'Value'], [
+      ['scheduleName', n], ['cronExpr', '0 2 * * *'],
+      ['retentionCount', '7'], ['status', {v:'ACTIVE',c:'ok'}],
+      ['nextExecution', '2024-11-15T02:00:00Z'],
+    ]); blank(); return;
+  }
+  emit('Backup Schedules', 'hdr'); blank();
+  emitTable(['scheduleName', 'cronExpr', 'retentionCount', 'status', 'nextExecution'], [
+    ['daily-backup', '0 2 * * *', '7', {v:'ACTIVE',c:'ok'}, '2024-11-15T02:00:00Z'],
+  ]); blank();
+}
+
+function utilityCmd(cmd, args) {
+  const sub = (args[1] || '').toLowerCase();
+  if (sub === 'nslookup') {
+    const h = getArg(cmd, '--hostname') || 'nrf.5gc.bell.ca';
+    emit('NSLookup · ' + h, 'hdr'); blank();
+    emitTable(['Field', 'Value'], [
+      ['hostname', h], ['resolvedIp', '172.16.59.91'],
+      ['dnsServer', '10.121.1.2'], ['ttl', '300s'],
+      ['result', {v:'SUCCESS', c:'ok'}],
+    ]); blank(); return;
+  }
+  if (sub === 'http2-ping') {
+    const t = getArg(cmd, '--target') || 'scp.5gc.bell.ca';
+    const p = getArg(cmd, '--port') || '443';
+    emit('HTTP/2 Ping · ' + t + ':' + p, 'hdr'); blank();
+    emitTable(['target', 'port', 'status', 'rtt_ms'], [
+      [t, p, {v:'SUCCESS',c:'ok'}, '24.5'],
+    ]); blank(); return;
+  }
+  emit('cmm utility: sub-commands: nslookup --hostname <fqdn> | http2-ping --target <fqdn> --port <port>', 'warn');
+}
+
+function cmmVersion(cmd, args) {
+  emit('CMM Version Information', 'hdr'); blank();
+  emitTable(['Field', 'Value'], [
+    ['release', {v:'CMM24.3', c:'ok'}],
+    ['buildVersion', 'CMM24.3.0.1234'],
+    ['documentNumber', 'DN245611719 Issue 15-0'],
+    ['installDate', '2024-11-01T08:00:00Z'],
+    ['necc0Version', 'CMM24.3-necc-build.5678'],
+    ['necc1Version', 'CMM24.3-necc-build.5678'],
+  ]); blank();
+}
+
+function amfMultiLinkCmd(cmd, args) {
+  // Alias: amfMultilink (no capital L) used in MOP
+  amfMultiLink(cmd, args);
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// TROUBLESHOOTING CLI GUIDE — CMG-AMF-TS-CLI-001 Rev A
+// Nokia CMM AMF — Bell Canada Simcoe  CMM24.3
+// ═══════════════════════════════════════════════════════════════
+
+function tsCmd(cmd) {
+  const lower = cmd.toLowerCase().trim();
+  if (lower === 'ts')         { tsQuickRef(); return; }
+  if (lower === 'ts logs')    { tsLogs(); return; }
+  if (lower === 'ts debug')   { tsDebugBundle(); return; }
+  if (lower === 'ts ue')      { tsUeGuide(); return; }
+  if (lower === 'ts alarms')  { tsAlarmsGuide(); return; }
+  if (lower === 'ts pcmd')    { tsPcmdGuide(); return; }
+  emit('TS commands: ts | ts logs | ts debug | ts ue | ts alarms | ts pcmd', 'warn');
+}
+
+function tsQuickRef() {
+  blank();
+  emit('╔══════════════════════════════════════════════════════════════════╗', 'hdr');
+  emit('║  Nokia CMM AMF — Troubleshooting CLI Guide  CMG-AMF-TS-CLI-001  ║', 'hdr');
+  emit('║  Rev A · 2026-03-18 · Bell Canada Simcoe Production · CMM24.3  ║', 'hdr');
+  emit('╚══════════════════════════════════════════════════════════════════╝', 'hdr');
+  blank();
+  emitTable(['Symptom / Scenario', 'First Commands to Run'], [
+    ['UE registration failing',         'cmm subscriber show --imsi <IMSI> --radioType 5G\n+ cmm traceData create --imsi <IMSI> --traceOrigin cli\n+ cmm amfMultiLink list --amfIntfType N2'],
+    ['High alarm count',                'cmm alarm active list\n+ cmm alarm active show <INDEX>\n+ tail -f /var/log/app/master.log'],
+    ['NRF registration issue',          'cmm amfMultiLink list --amfIntfType Nnrf\n+ cmm nbiPing list --pingTarget <NRF_IP>'],
+    ['N2 link toward gNB down',         'cmm amfMultiLink list --amfIntfType N2\n+ cmm amfLinkAdmin show --amfLinkType N2'],
+    ['N11 SBI toward SMF down',         'cmm amfMultiLink list --amfIntfType N11\n+ cmm amfHttp2Ping list'],
+    ['Subscriber stuck / cannot dereg', 'cmm subscriber show --imsi <IMSI>\n+ cmm subscriber delete --imsi <IMSI> --radioType 5G'],
+    ['PCMD not generating',             'cmm amfPcmdConfig show\n+ ls -la /data-pcmd/'],
+    ['High CPU / memory NECC',          'sudo fns_monitor\n+ sudo cmm_monitor -t vminfo -vv'],
+    ['Need to open Nokia TAC case',     '/usr/sbin/get_debug_info + /opt/app/bin/cmmDBdump\n+ cmm alarm active list'],
+    ['On-wire packet capture needed',   'tcpdump -i any -s 3000 -w /tmp/capture.pcap'],
+  ]);
+  blank();
+  emit('  <span style="color:var(--cyan)">ts logs</span> — log paths  |  <span style="color:var(--cyan)">ts debug</span> — debug bundle  |  <span style="color:var(--cyan)">ts ue</span> — trace guide  |  <span style="color:var(--cyan)">ts pcmd</span> — PCMD guide', 'info');
+  blank();
+}
+
+function tsLogs() {
+  emit('CMM AMF — Key Log File Locations (NECC)', 'hdr'); blank();
+  emitTable(['Log Type', 'Path', 'Description'], [
+    ['CMM General',      '~/cmm.log',                         'Overall CMM application log'],
+    ['Master Log',       '/var/log/app/master.log',           'Primary call/message processing log'],
+    ['Signaling Log',    '/var/log/app/signaling.log',        'Signaling message trace log'],
+    ['Protocol Monitor', '/data-logs/protocolmonitor.log',    'Decoded HTTP/2 + N1/N2 text — no Wireshark needed'],
+    ['Local Log',        '/var/log/local.log',                'Per-VM local log; backup if master.log missing'],
+    ['CLI History',      '/var/log/cli_cmd.log',              'All CLI commands executed'],
+    ['Systemd Journal',  '/var/log/messages',                 'Systemd managed process logs'],
+    ['Config Manager',   '/var/log/cfgmgr/*',                 'REST config management logs'],
+    ['REST API',         '/var/log/httpd/*.log',              'REST API access logs'],
+    ['Performance Data', '/data-perf/',                       'CPU, memory, I/O, call procedure stats'],
+    ['PCMD Files',       '/data-pcmd/',                       'AMF PCMD records (gzip compressed)'],
+    ['Capture Agent',    '/var/log/cta*',                     'Network trace capture agent (IPDS VM)'],
+  ]);
+  blank();
+  emit('  Quick log commands:', 'dim');
+  emit('  tail -f /var/log/app/master.log', 'info');
+  emit('  grep <IMSI> /var/log/app/master.log | tail -100', 'info');
+  emit('  grep -i "fail\\|error\\|reject" /var/log/app/signaling.log | tail -50', 'info');
+  emit('  tail -f /data-logs/protocolmonitor.log', 'info');
+  blank();
+}
+
+function tsDebugBundle() {
+  emit('Tech Support Debug Bundle Commands', 'hdr'); blank();
+  emit('NOTE: Collect get_debug_info BEFORE and AFTER fault, min 15min interval.', 'warn');
+  blank();
+  emitTable(['#', 'Purpose', 'Command'], [
+    ['1', 'Full CMM debug bundle (specific date/hour)',
+      '/usr/sbin/get_debug_info --profile admin --vmlist necc,ipds --daylist 2026-03-18 --hourlist 15 --compress --debug'],
+    ['2', 'View all get_debug_info options',   '/usr/sbin/get_debug_info -h'],
+    ['3', 'Dump CMM database for TAC',         '/opt/app/bin/cmmDBdump'],
+    ['4', 'Check PCMD files present',          'ls -lah /data-pcmd/ | tail -20'],
+    ['5', 'View lastAPCMD (recent failures)',  'ls -lah /data-pcmd/ | grep lastAP\nzcat /data-pcmd/lastAPCMD* | head -50'],
+    ['6', 'Export PCMD records by time range', '/opt/app/bin/pcmdExport --startTime <time> --endTime <time>'],
+  ]);
+  blank();
+  emit('  VMList options: necc, ipds, paps, cpps, dbs', 'dim');
+  emit('  Send compressed tar archive to Nokia TAC with fault ticket number.', 'dim');
+  blank();
+}
+
+function tsUeGuide() {
+  emit('Per-UE Call Trace & PCAP Capture Guide', 'hdr'); blank();
+  emit('  Traces stored in /data-pcmd/  |  Decoded text: /data-logs/protocolmonitor.log', 'dim');
+  emit('  Use Wireshark or LTEPA (Nokia-enhanced Wireshark) to analyse PCAPs.', 'dim');
+  blank();
+  emitTable(['#', 'Purpose', 'Command'], [
+    ['1', 'Create per-UE trace by IMSI',       'cmm traceData create --imsi <IMSI> --traceOrigin cli'],
+    ['2', 'Create trace with time window',     'cmm traceData create --imsi <IMSI> --traceOrigin cli --start <YYYY-MM-DDTHH:mm:ss.SSS> --end <YYYY-MM-DDTHH:mm:ss.SSS>'],
+    ['3', 'List all active trace sessions',    'cmm traceDataStatus list'],
+    ['4', 'View trace status for specific IMSI','cmm traceDataStatus list --imsi <IMSI>'],
+    ['5', 'View trace HITS count only',        'cmm traceDataStatus list --column HITS'],
+    ['6', 'Show full trace session details',   'cmm traceDataStatus show --traceID <ID>'],
+    ['7', 'Stop trace + remove from DB',       'cmm traceData delete --imsi <IMSI> --traceOrigin cli --limit db'],
+    ['8', 'Stop trace + remove DB + PCAP',     'cmm traceData delete --imsi <IMSI> --traceOrigin cli --limit all'],
+    ['9', 'View PCAP files on NECC',           'ls -la /data-pcmd/'],
+    ['10','View decoded protocol log',         'tail -f /data-logs/protocolmonitor.log\ngrep <IMSI> /data-logs/protocolmonitor.log'],
+    ['11','Copy PCAP to workstation via sFTP', 'sftp -oPort=22 admin@<NECC_IP>:/data-pcmd/<trace_file>.pcap .'],
+  ]);
+  blank();
+}
+
+function tsAlarmsGuide() {
+  emit('Alarm Investigation & Management Guide', 'hdr'); blank();
+  emit('  NOTE: After NECC switchover, new active NECC re-raises alarms if fault persists.', 'warn');
+  blank();
+  emitTable(['#', 'Purpose', 'Command'], [
+    ['1', 'List all alarm definitions (PID + name)',  'cmm alarm definition list'],
+    ['2', 'Show full definition for alarm PID',       'cmm alarm definition show <PID>  # e.g. 40736'],
+    ['3', 'List all currently active alarms',         'cmm alarm active list'],
+    ['4', 'Show full details of a specific alarm',    'cmm alarm active show <INDEX>  # e.g. 19'],
+    ['5', 'View alarm history (last 1h/6h/24h)',      'cmm alarm history list --period 1h'],
+    ['6', 'Show detail of a specific history record', 'cmm alarm history show <INDEX> --task raise'],
+    ['7', 'Cancel a specific active alarm',           'cmm alarm active cancel <INDEX>  # e.g. 19'],
+    ['8', 'Cancel alarms by source host',             'cmm alarm active cancel --sourceHost <hostname>'],
+    ['9', 'Cancel alarms by PID',                     'cmm alarm active cancel --pid <PID>'],
+    ['10','Add alarm to ignore list (suppress)',       'cmm alarmIgnore create --alarmId <PID>  # e.g. 3159'],
+    ['11','View current alarm ignore list',            'cmm alarmIgnore list'],
+    ['12','Remove alarm from ignore list',             'cmm alarmIgnore delete --alarmId <PID>'],
+  ]);
+  blank();
+}
+
+function tsPcmdGuide() {
+  emit('PCMD — Per-Call Measurement Data Guide', 'hdr'); blank();
+  emit('  PCMD generates per-procedure records for every registration, HO, PDU session event.', 'dim');
+  emit('  Records stored in /data-pcmd/ or streamed to analytics server via gRPC.', 'dim');
+  blank();
+  emitTable(['#', 'Purpose', 'Command'], [
+    ['1', 'Show current AMF PCMD config',              'cmm amfPcmdConfig show'],
+    ['2', 'Enable subscribe/unsubscribe records',      'cmm amfPcmdConfig modify --enableSubscribeReport true'],
+    ['3', 'Include 5QI in PCMD records',               'cmm amfPcmdConfig modify --include5qi true'],
+    ['4', 'Enable HTTP proxy error details',           'cmm amfPcmdConfig modify --enableHttpProxyDetails onError'],
+    ['5', 'Disable SMS procedure records',             'cmm amfPcmdConfig modify --enableSmsReport false'],
+    ['6', 'Create PCMD streaming service IP',          'cmm serviceIp create --poolType PCMS --poolId 0 --poolMemberId 0 --niType ANALYTICSSRV --svcIp <IP> --assignmentType fixed'],
+    ['7', 'Configure PCMD streaming endpoint',        'cmm pcmdStreaming create --streamingType AMF --primaryIp "<analytics_IP>" --primaryPort <port> --tlsCertificateName <cert_name>'],
+    ['8', 'Activate PCMD streaming',                  'cmm pcmdStreaming modify --streamingType AMF --operationStateAct true'],
+    ['9', 'Verify streaming connection',              'netstat -nap | grep <analytics_port>  # expect ESTABLISHED'],
+    ['10','View PCMD files locally',                  'ls -la /data-pcmd/\nzcat /data-pcmd/<pcmd_file>.gz | head -50'],
+  ]);
+  blank();
+}
+
+// ── System Health ─────────────────────────────────────────────
+function cmmMonitor(cmd) {
+  const verbose = cmd.includes('-vv');
+  const vminfo  = cmd.includes('vminfo');
+  emit('cmm_monitor' + (verbose ? ' -vv' : '') + (vminfo ? ' -t vminfo' : ''), 'hdr'); blank();
+  if (vminfo) {
+    emitTable(['VM', 'Type', 'vCPU', 'Memory (GB)', 'Disk (GB)', 'Status'], [
+      ['necc0',  'NECC',  '4',  '16', '200', {v:'PASSED',c:'ok'}],
+      ['necc1',  'NECC',  '4',  '16', '200', {v:'PASSED',c:'ok'}],
+      ['cpps-1', 'CPPS',  '8',  '32', '100', {v:'PASSED',c:'ok'}],
+      ['cpps-2', 'CPPS',  '8',  '32', '100', {v:'PASSED',c:'ok'}],
+      ['cpps-3', 'CPPS',  '8',  '32', '100', {v:'PASSED',c:'ok'}],
+      ['ipds-1', 'IPDS',  '4',  '16', '100', {v:'PASSED',c:'ok'}],
+      ['ipds-2', 'IPDS',  '4',  '16', '100', {v:'PASSED',c:'ok'}],
+    ]);
+  } else {
+    emitTable(['Check', 'Result', 'Details'], [
+      ['Application Services',  {v:'PASSED',c:'ok'},   'All CMM services running'],
+      ['NECC Cluster',          {v:'PASSED',c:'ok'},   'necc0 active, necc1 standby'],
+      ['CPPS VMs',              {v:'PASSED',c:'ok'},   '3/3 healthy'],
+      ['IPDS VMs',              {v:'PASSED',c:'ok'},   '2/2 healthy'],
+      ['Database Replication',  {v:'PASSED',c:'ok'},   'Master/slave in sync'],
+      ['Active Alarms',         {v:'WARNING',c:'warn'},'2 alarms active (1 MAJOR, 1 MINOR)'],
+    ]);
+  }
+  blank();
+  emit(verbose ? 'Caution: -vv may cause high CPU on busy nodes.' : 'Run with -vv for VM sizing details.', 'dim');
+}
+
+function fnsMonitor(cmd) {
+  emit('fns_monitor — VM-Level Health Check', 'hdr'); blank();
+  emitTable(['Check', 'Result', 'Details'], [
+    ['CPU Usage',      {v:'PASSED',c:'ok'},    '34% average across CPPs'],
+    ['Memory',         {v:'PASSED',c:'ok'},    '62% used, 38% free'],
+    ['Disk Space',     {v:'PASSED',c:'ok'},    '/data-pcmd 41% used'],
+    ['GlusterFS',      {v:'PASSED',c:'ok'},    'All bricks mounted and healthy'],
+    ['NTP Sync',       {v:'PASSED',c:'ok'},    'Synchronized to 11.22.255.123 (stratum 2)'],
+    ['Pacemaker',      {v:'PASSED',c:'ok'},    'Cluster online, all resources started'],
+    ['Redis',          {v:'PASSED',c:'ok'},    'Master/replica running'],
+    ['Serf',           {v:'PASSED',c:'ok'},    'All members alive'],
+  ]);
+  blank();
+  emit('Result: PASSED  |  No critical conditions detected.', 'ok');
+}
+
+// ── CMM System Info ────────────────────────────────────────────
+function cmmSystemInfo(cmd, args) {
+  const action = (args[1]||'').toLowerCase();
+  if (action === 'show') {
+    emit('CMM System Information', 'hdr'); blank();
+    emitTable(['Field', 'Value'], [
+      ['applicationType',  'AMF'],
+      ['releaseName',      {v:'CMM24.3',c:'ok'}],
+      ['buildNumber',      'CMM24.3.0.1234'],
+      ['documentNumber',   'DN245611719 Issue 15-0'],
+      ['switchName',       'necc0'],
+      ['nodeType',         'CNF'],
+      ['deploymentMode',   'Kubernetes'],
+    ]); blank(); return;
+  }
+  emit('Syntax: cmm systemInfo show', 'warn');
+}
+
+function cmmSystem(cmd, args) {
+  const action = (args[1]||'').toLowerCase();
+  if (action === 'show') {
+    emit('CMM System Summary', 'hdr'); blank();
+    emitTable(['Field', 'Value'], [
+      ['neccNodeName',  'necc0'],
+      ['neccRole',      {v:'ACTIVE',c:'ok'}],
+      ['neccPartner',   'necc1 (STANDBY)'],
+      ['configuration', 'CMM24.3 — AMF Mode'],
+      ['plmn',          '302-720'],
+    ]); blank(); return;
+  }
+  emit('Syntax: cmm system show', 'warn');
+}
+
+// ── Enhanced Alarm Commands (TS guide version) ─────────────────
+function alarmCmd(cmd, args) {
+  const sub    = (args[1]||'').toLowerCase();  // active / history / definition
+  const action = (args[2]||'').toLowerCase();  // list / show / cancel
+
+  // cmm alarm definition list/show
+  if (sub === 'definition') {
+    if (action === 'show') {
+      const pid = args[3] || '40736';
+      emit('Alarm Definition · PID ' + pid, 'hdr'); blank();
+      const defs = {
+        '40736': ['N2InterfaceDown', 'CRITICAL', 'N2 NGAP interface failed. Check gNB SCTP connectivity and N2 IP routing.', 'AMF'],
+        '40122': ['amfMmeN26LinkDegraded', 'MAJOR', 'N26 link between AMF and MME degraded. Verify MME reachability.', 'AMF'],
+        '40918': ['pmCountersMissing', 'MINOR', 'PM counters missing for one or more intervals. Check NTP, pmcollector.', 'AMF'],
+        '3159':  ['NRFRegistrationFailure', 'MAJOR', 'NRF unreachable or TLS failure. Check connectivity and certificates.', 'AMF'],
+        '40201': ['SBIConnectionFailure', 'MAJOR', 'HTTP/2 connection to NF failed. Check SBI subnet, DNS resolution.', 'AMF'],
+        '40501': ['CPUOverload', 'MAJOR', 'CPU usage exceeded threshold. Monitor VS.avePerCoreCpuUsage counter.', 'AMF'],
+      };
+      const d = defs[pid] || ['UnknownAlarm', 'MINOR', 'Definition not found in local database.', 'AMF'];
+      emitTable(['Field', 'Value'], [
+        ['pid',           pid],
+        ['alarmName',     d[0]],
+        ['severity',      {v:d[1], c:d[1]==='CRITICAL'?'err':d[1]==='MAJOR'?'orange':'warn'}],
+        ['probableCause', d[2]],
+        ['application',   d[3]],
+        ['clearCondition','Fault condition resolved and confirmed.'],
+      ]); blank(); return;
+    }
+    // definition list
+    emit('Alarm Definitions (sample)', 'hdr'); blank();
+    emitTable(['PID', 'Name', 'Severity', 'Application'], [
+      ['3159',  'NRFRegistrationFailure',   {v:'MAJOR',c:'orange'},   'AMF'],
+      ['40122', 'amfMmeN26LinkDegraded',    {v:'MAJOR',c:'orange'},   'AMF'],
+      ['40201', 'SBIConnectionFailure',     {v:'MAJOR',c:'orange'},   'AMF'],
+      ['40501', 'CPUOverload',              {v:'MAJOR',c:'orange'},   'AMF'],
+      ['40736', 'N2InterfaceDown',          {v:'CRITICAL',c:'err'},   'AMF'],
+      ['40918', 'pmCountersMissing',        {v:'MINOR',c:'warn'},     'AMF'],
+    ]);
+    blank(); emit('Use: cmm alarm definition show <PID> for full details.', 'dim'); return;
+  }
+
+  // cmm alarm active ...
+  if (sub === 'active') {
+    if (action === 'show') {
+      const idx = args[3] || '19';
+      emit('Alarm Active · INDEX ' + idx, 'hdr'); blank();
+      emitTable(['Field', 'Value'], [
+        ['INDEX',          idx],
+        ['PID',            '40122'],
+        ['NAME',           'amfMmeN26LinkDegraded'],
+        ['SEVERITY',       {v:'MAJOR',c:'orange'}],
+        ['SOURCE_APP',     'amf'],
+        ['SOURCE_HOST',    'cpps-1'],
+        ['SOURCE_IP',      '172.16.10.11'],
+        ['RAISED_TIME',    '2024-11-14T14:32:00Z'],
+        ['ADDITIONAL_INFO','N26 linkIndex=1 remoteIp=172.16.59.91 state=disabled'],
+      ]); blank(); return;
+    }
+    if (action === 'cancel') {
+      const idx = args[3];
+      const host = getArg(cmd, '--sourceHost');
+      const pid  = getArg(cmd, '--pid');
+      if (idx)  { emit('Alarm cancelled: INDEX ' + idx + '. Use only after root cause is resolved.', 'ok'); return; }
+      if (host) { emit('All alarms cancelled from sourceHost: ' + host, 'ok'); return; }
+      if (pid)  { emit('All alarms with PID ' + pid + ' cancelled.', 'ok'); return; }
+      emit('Syntax: cmm alarm active cancel <INDEX> | --sourceHost <host> | --pid <pid>', 'warn'); return;
+    }
+    // list
+    emit('Active Alarms', 'hdr'); blank();
+    emitTable(['INDEX', 'PID', 'NAME', 'SEVERITY', 'TIME', 'TTL'], [
+      ['19', '40122', 'amfMmeN26LinkDegraded',  {v:'MAJOR',c:'orange'},  '2024-11-14T14:32:00Z', '86400s'],
+      ['20', '40918', 'pmCountersMissing',      {v:'MINOR',c:'warn'},    '2024-11-14T13:55:00Z', '86400s'],
+    ]);
+    blank(); emit('Total: 2  |  cmm alarm active show <INDEX> for details', 'dim'); return;
+  }
+
+  // cmm alarm history ...
+  if (sub === 'history') {
+    if (action === 'show') {
+      const idx = args[3] || '1';
+      const task = getArg(cmd, '--task') || 'raise';
+      emit('Alarm History · INDEX ' + idx + ' task=' + task, 'hdr'); blank();
+      emitTable(['Field', 'Value'], [
+        ['INDEX', idx], ['PID', '40122'], ['NAME', 'amfMmeN26LinkDegraded'],
+        ['TASK', task], ['TIME', '2024-11-14T14:32:00Z'], ['SOURCE_HOST', 'cpps-1'],
+      ]); blank(); return;
+    }
+    const period = getArg(cmd, '--period') || '1h';
+    emit('Alarm History · period=' + period, 'hdr'); blank();
+    emitTable(['INDEX', 'PID', 'NAME', 'TASK', 'TIME'], [
+      ['1', '40122', 'amfMmeN26LinkDegraded', 'raise', '2024-11-14T14:32:00Z'],
+      ['2', '40918', 'pmCountersMissing',     'raise', '2024-11-14T13:55:00Z'],
+      ['3', '40100', 'N2LinkFailed',          'raise', '2024-11-14T09:11:00Z'],
+      ['4', '40100', 'N2LinkFailed',          'clear', '2024-11-14T09:18:00Z'],
+      ['5', '3159',  'NRFRegistrationFailure','raise', '2024-11-14T08:01:00Z'],
+      ['6', '3159',  'NRFRegistrationFailure','clear', '2024-11-14T08:04:00Z'],
+    ]);
+    blank(); return;
+  }
+
+  // fallback
+  emit('Syntax: cmm alarm definition list|show <PID>', 'info');
+  emit('        cmm alarm active list|show <INDEX>|cancel <INDEX>', 'info');
+  emit('        cmm alarm history list [--period 1h]|show <INDEX> --task raise', 'info');
+}
+
+function alarmIgnoreCmd(cmd, args) {
+  const action = (args[1]||'').toLowerCase();
+  if (action === 'create') {
+    const id = getArg(cmd, '--alarmId');
+    emit('alarmIgnore created: PID ' + id + ' — suppressed from active/history and EMS. Use with caution.', 'ok'); return;
+  }
+  if (action === 'delete') {
+    const id = getArg(cmd, '--alarmId');
+    emit('alarmIgnore deleted: PID ' + id + ' — alarm reporting re-enabled.', 'ok'); return;
+  }
+  emit('Alarm Ignore List (suppressed alarms)', 'hdr'); blank();
+  emitTable(['alarmId (PID)', 'Name', 'Suppressed Since'], [
+    ['3159', 'NRFRegistrationFailure', '2024-11-14T08:00:00Z'],
+  ]); blank();
+}
+
+// ── Enhanced Subscriber Commands ───────────────────────────────
+function subscriberCmd(cmd, args) {
+  const action = (args[1]||'').toLowerCase();
+  const imsi   = getArg(cmd, '--imsi');
+  const rmState = getArg(cmd, '--amfRmState');
+  const cmState = getArg(cmd, '--amfCmState');
+  const radio  = getArg(cmd, '--radioType') || '5G';
+
+  if (action === 'count') {
+    emit('Subscriber Count', 'hdr'); blank();
+    emitTable(['Filter', 'Count'], [
+      ['Total (all states)',                     {v:'1247',c:'ok'}],
+      ['amfRmState=registered radioType=5G',     {v:'1235',c:'ok'}],
+      ['amfRmState=deregistered',               {v:'12',c:'warn'}],
+      ['amfCmState=connected radioType=5G',     {v:'834',c:'ok'}],
+      ['amfCmState=idle radioType=5G',          {v:'401',c:'dim'}],
+    ]); blank(); return;
+  }
+
+  if (action === 'delete') {
+    if (!imsi) { emit('Syntax: cmm subscriber delete --imsi <IMSI> --radioType 5G', 'err'); return; }
+    emit('WARNING: cmm subscriber delete forces deregistration of IMSI ' + imsi, 'warn');
+    emit('Use only for controlled testing or clearing stuck sessions.', 'warn');
+    emit('Subscriber ' + imsi + ' deleted from AMF (deregistered).', 'ok'); return;
+  }
+
+  if (action === 'show') {
+    if (imsi) {
+      emit('Subscriber State · IMSI: ' + imsi + ' radioType: ' + radio, 'hdr'); blank();
+      emitTable(['Field', 'Value'], [
+        ['imsi',          imsi],
+        ['msisdn',        '16471234567'],
+        ['radioType',     radio],
+        ['amfRmState',    {v:'registered',c:'ok'}],
+        ['amfCmState',    {v:'connected',c:'ok'}],
+        ['gpsi',          'msisdn-16471234567'],
+        ['pei',           'imei-356938035643809'],
+        ['plmn',          '302-720'],
+        ['tai',           '302720:0x1001'],
+        ['cellId',        '0x100A'],
+        ['gnbId',         '172.16.59.11'],
+        ['pduSessions',   '2'],
+        ['lastActivity',  '2024-11-14T14:45:00Z'],
+      ]); blank();
+      emit('Note: amfRmState: registered/deregistered  |  amfCmState: connected/idle', 'dim');
+      return;
+    }
+    if (rmState || cmState) {
+      emit('Subscriber List · filter: ' + (rmState||cmState), 'hdr'); blank();
+      emitTable(['imsi', 'amfRmState', 'amfCmState', 'radioType', 'gnbId'], [
+        ['302720100000001', {v:'registered',c:'ok'}, {v:'connected',c:'ok'}, '5G', '172.16.59.11'],
+        ['302720100000002', {v:'registered',c:'ok'}, {v:'idle',c:'dim'},     '5G', '172.16.59.12'],
+        ['302720100000003', {v:'registered',c:'ok'}, {v:'connected',c:'ok'}, '5G', '172.16.59.11'],
+      ]); blank(); return;
+    }
+  }
+  emit('Syntax: cmm subscriber show --imsi <IMSI> --radioType 5G', 'info');
+  emit('        cmm subscriber show --amfRmState registered --radioType 5G', 'info');
+  emit('        cmm subscriber count [--amfRmState registered] [--amfCmState connected]', 'info');
+  emit('        cmm subscriber delete --imsi <IMSI> --radioType 5G  (WARNING: force clear)', 'warn');
+}
+
+// ── NBI Traceroute ────────────────────────────────────────────
+function nbiTraceroute(cmd, args) {
+  const target = getArg(cmd, '--traceTarget') || getArg(cmd, '--pingTarget') || '172.16.59.11';
+  emit('NBI Traceroute → ' + target, 'hdr'); blank();
+  emitTable(['hop', 'ip', 'rtt_ms', 'hostname'], [
+    ['1', '172.16.46.1',  '0.3', 'gw-n2.bell.ca'],
+    ['2', '172.16.55.1',  '0.8', 'core-sw.bell.ca'],
+    ['3', target,         '1.2', 'gnb-core-1.bell.ca'],
+  ]);
+  blank(); emit('Traceroute complete. 3 hops, 0 packet loss.', 'ok');
+}
+
+// ── PCMD Commands ─────────────────────────────────────────────
+function amfPcmdConfig(cmd, args) {
+  const action = (args[1]||'').toLowerCase();
+  if (action === 'modify') {
+    const params = ['--enableSubscribeReport','--include5qi','--enableHttpProxyDetails','--enableSmsReport'];
+    emit('amfPcmdConfig modified successfully.', 'ok'); return;
+  }
+  emit('AMF PCMD Configuration', 'hdr'); blank();
+  emitTable(['Field', 'Value', 'Description'], [
+    ['enableSmsReport',          {v:'true',c:'ok'},  'Include N20 SMS procedure records'],
+    ['enableSubscribeReport',    {v:'false',c:'dim'}, 'Include NRF subscribe/unsubscribe events'],
+    ['enableHttpProxyDetails',   {v:'onError',c:'ok'},'HTTP proxy details on error conditions only'],
+    ['include5qi',               {v:'false',c:'dim'}, 'Include 5QI value in PDU Secondary Record'],
+  ]); blank();
+}
+
+function pcmdStreaming(cmd, args) {
+  const action = (args[1]||'').toLowerCase();
+  if (action === 'create') { emit('pcmdStreaming endpoint created.', 'ok'); return; }
+  if (action === 'modify') { emit('pcmdStreaming modified: ' + getArg(cmd,'--streamingType') + ' operationStateAct=' + getArg(cmd,'--operationStateAct'), 'ok'); return; }
+  emit('PCMD Streaming Configuration', 'hdr'); blank();
+  emitTable(['streamingType', 'primaryIp', 'primaryPort', 'tlsCertificateName', 'operState'], [
+    ['AMF', '172.16.100.20', '9000', 'pcmd-tls-cert', {v:'active',c:'ok'}],
+  ]); blank();
+  emit('Verify: netstat -nap | grep 9000  (should show ESTABLISHED)', 'dim');
+}
+
+function tlsCertList(cmd, args) {
+  const action = (args[1]||'').toLowerCase();
+  if (action === 'create') { emit('tlsCertificateList created: ' + getArg(cmd,'--name'), 'ok'); return; }
+  emit('TLS Certificate Lists', 'hdr'); blank();
+  emitTable(['name', 'status'], [['pcmd-tls-cert', {v:'active',c:'ok'}]]); blank();
+}
+
+function tlsCert(cmd, args) {
+  const action = (args[1]||'').toLowerCase();
+  if (action === 'create') { emit('tlsCertificate created: ' + getArg(cmd,'--name'), 'ok'); return; }
+  emit('TLS Certificates', 'hdr'); blank();
+  emitTable(['name', 'signedCertFile', 'expiry', 'status'], [
+    ['pcmd-tls-cert', 'ca_cert.pem', '2027-01-01', {v:'valid',c:'ok'}],
+  ]); blank();
+}
+
+// ── Linux TS Commands ────────────────────────────────────────
+function tcpdumpCmd(cmd) {
+  emit('tcpdump — On-Wire Packet Capture', 'hdr'); blank();
+  emit('  Command: ' + cmd, 'info');
+  blank();
+  emitTable(['Parameter', 'Value', 'Description'], [
+    ['-i any',       'all interfaces',   'Capture on all network interfaces'],
+    ['-s 3000',      '3000 bytes',       'Packet snap length (size limit)'],
+    ['-w /tmp/amf-capture.pcap', 'file', 'Write to PCAP file for Wireshark/LTEPA analysis'],
+    ['-n',           'no DNS lookup',    'Suppress DNS resolution (faster)'],
+  ]);
+  blank();
+  emit('  Capturing... (simulated — press Ctrl+C to stop)', 'ok');
+  emit('  14:47:01 172.16.46.201.36412 > 172.16.59.11.36412: SCTP HEARTBEAT', 'dim');
+  emit('  14:47:01 172.16.59.11.36412 > 172.16.46.201.36412: SCTP HEARTBEAT-ACK', 'dim');
+  emit('  14:47:02 172.16.46.202.8080 > 172.16.59.71.8080:   HTTP/2 SETTINGS', 'dim');
+  blank();
+  emit('  Open PCAP with Wireshark or LTEPA (Nokia-enhanced Wireshark).', 'dim');
+  emit('  LTEPA can decrypt NAS messages and show protocol stack.', 'dim');
+}
+
+function tailLog(cmd) {
+  const path = cmd.replace(/^tail\s+-f?\s*/i, '').split('|')[0].trim();
+  emit('tail -f ' + path, 'hdr'); blank();
+  const now = '2024-11-14T14:47';
+  emit(now + ':01.123 [INFO]  cpps-1  AMF  Registration: IMSI=302720100000001 TAI=302720:0x1001 gNB=172.16.59.11 → SUCCESS', 'dim');
+  emit(now + ':01.456 [INFO]  cpps-1  AMF  PDUSession: IMSI=302720100000001 SMF=172.16.59.51 SST=1 SD=D143A5 → ESTABLISHED', 'dim');
+  emit(now + ':02.001 [INFO]  cpps-2  AMF  Registration: IMSI=302720100000003 TAI=302720:0x1001 gNB=172.16.59.11 → SUCCESS', 'dim');
+  emit(now + ':32.001 [WARN]  cpps-1  AMF  N26 link linkIndex=1 remoteIp=172.16.59.91 → DISABLED', 'warn');
+  emit(now + ':32.100 [ALARM] necc0   FM   Alarm RAISED PID=40122 amfMmeN26LinkDegraded MAJOR', 'orange');
+  blank();
+  emit('  (Ctrl+C to stop — press Enter to continue)', 'dim');
+}
+
+function grepCmd(cmd) {
+  const imsi = cmd.match(/\b(30272\d{10}|\d{15})\b/)?.[0];
+  emit('grep output', 'hdr'); blank();
+  if (imsi) {
+    emit('2024-11-14T14:45:01 [INFO] AMF Registration IMSI=' + imsi + ' TAI=302720:0x1001 gNB=172.16.59.11 → SUCCESS', 'dim');
+    emit('2024-11-14T14:45:02 [INFO] AMF PDUSession IMSI=' + imsi + ' SMF=172.16.59.51 → ESTABLISHED', 'dim');
+    emit('2024-11-14T14:46:00 [INFO] AMF PeriodicRegistration IMSI=' + imsi + ' → UPDATED', 'dim');
+  } else {
+    emit('2024-11-14T14:32:01 [WARN] N26 link disabled', 'warn');
+    emit('2024-11-14T14:32:05 [ERROR] SBI connection retry SMF N11 attempt 1/3', 'err');
+    emit('2024-11-14T14:33:00 [INFO] SBI connection SMF N11 restored', 'ok');
+  }
+  blank();
+}
+
+function lsPcmd(cmd) {
+  emit('ls /data-pcmd/', 'hdr'); blank();
+  emit('-rw-r--r-- 1 cmm cmm  2.4M Nov 14 14:45  IMSI_302720100000001_TRACEID_1_2024-11-14-14-00-00.pcap', 'dim');
+  emit('-rw-r--r-- 1 cmm cmm  1.1M Nov 13 10:05  IMSI_262280000000005_TRACEID_997_2024-11-13-10-00.pcap', 'dim');
+  emit('-rw-r--r-- 1 cmm cmm  890K Nov 14 14:00  AMF_20241114_1400.pcmd.gz', 'dim');
+  emit('-rw-r--r-- 1 cmm cmm  902K Nov 14 13:45  AMF_20241114_1345.pcmd.gz', 'dim');
+  emit('-rw-r--r-- 1 cmm cmm   12K Nov 14 14:30  lastAPCMD_necc0.gz', 'dim');
+  blank();
+}
+
+function lsDataLogs(cmd) {
+  emit('ls /data-logs/', 'hdr'); blank();
+  emit('-rw-r--r-- 1 cmm cmm  145M Nov 14 14:47  protocolmonitor.log', 'dim');
+  emit('-rw-r--r-- 1 cmm cmm   22M Nov 14 00:00  protocolmonitor.log.1', 'dim');
+  blank();
+  emit('tail -f /data-logs/protocolmonitor.log  — decoded HTTP/2 + NAS as text (no Wireshark needed)', 'dim');
+}
+
+function zcatCmd(cmd) {
+  const file = cmd.split(/\s+/)[1] || '/data-pcmd/lastAPCMD_necc0.gz';
+  emit('zcat ' + file, 'hdr'); blank();
+  emit('IMSI;MSISDN;EVENT;TIME;CAUSE;TAI;gNB', 'dim');
+  emit('302720100000006;16471230006;DEREGISTRATION;2024-11-14T14:30:01;NORMAL;302720:0x1003;172.16.59.15', 'dim');
+  emit('302720100000007;16471230007;REGISTRATION;2024-11-14T14:30:05;SUCCESS;302720:0x4001;172.16.59.16', 'dim');
+  blank();
+}
+
+function getDebugInfo(cmd) {
+  const day  = cmd.match(/--daylist\s+(\S+)/)?.[1]  || '<DATE>';
+  const hour = cmd.match(/--hourlist\s+(\S+)/)?.[1] || '<HH>';
+  emit('/usr/sbin/get_debug_info', 'hdr'); blank();
+  emit('  Profile: admin  |  VMList: necc,ipds  |  Day: ' + day + '  |  Hour: ' + hour, 'dim');
+  blank();
+  emit('  Collecting logs from: necc0, necc1, ipds-1, ipds-2 ...', 'dim');
+  emit('  [████████████████████] 100%', 'ok');
+  emit('  Archive created: /tmp/debug_' + day.replace(/-/g,'') + '_' + hour + '00.tar.gz  (128 MB)', 'ok');
+  blank();
+  emit('  Send archive to Nokia TAC with fault ticket number.', 'dim');
+  emit('  NOTE: Collect BEFORE and AFTER fault — min 15min interval between collections.', 'warn');
+}
+
+function cmmDbDump(cmd) {
+  emit('/opt/app/bin/cmmDBdump', 'hdr'); blank();
+  emit('  Dumping CMM database to home directory...', 'dim');
+  emit('  [████████████████████] 100%', 'ok');
+  emit('  Output: ~/cmm_db_dump_20241114_1447.txt  (44 MB)', 'ok');
+  blank();
+  emit('  Nokia TAC requests this when opening trouble tickets.', 'dim');
+}
+
+function nslookupCmd(cmd) {
+  const host = cmd.split(/\s+/)[1] || 'nrf.5gc.bell.ca';
+  emit('nslookup ' + host, 'hdr'); blank();
+  emitTable(['Field','Value'],[
+    ['Server', '10.121.1.2'],
+    ['Address', '10.121.1.2#53'],
+    ['Name', host],
+    ['Address', '172.16.59.91'],
+    ['Result', {v:'SUCCESS',c:'ok'}],
+  ]); blank();
+}
+
+function sftpCmd(cmd) {
+  const match = cmd.match(/sftp\s+(?:-oPort=(\d+)\s+)?(\S+)/i);
+  const port = match?.[1] || '22';
+  const dest = match?.[2] || 'admin@<NECC_IP>:/data-pcmd/<file>.pcap';
+  emit('sFTP · port=' + port + ' · ' + dest, 'hdr'); blank();
+  emit('  Connected to NECC. Navigate to /data-pcmd/ to access PCAP files.', 'ok');
+  emit('  Use: get <filename>.pcap  to download.', 'dim');
+  emit('  PM Bulk Reporter: sftp -oPort=9022 sysadm@<pm-bulk-reporter-lb-ip>', 'dim');
+  emit('    Navigate to /PerformanceManagementReportFiles for 3GPP XML gz files.', 'dim');
+  blank();
+}
+
+function netstatCmd(cmd) {
+  const port = cmd.match(/grep\s+(\d+)/)?.[1] || '9000';
+  emit('netstat -nap | grep ' + port, 'hdr'); blank();
+  emitTable(['Proto','Local Address','Foreign Address','State','PID/Program'], [
+    ['tcp', '172.16.46.202:' + port, '172.16.100.20:54321', {v:'ESTABLISHED',c:'ok'}, '1234/pcmdstreaming'],
+    ['tcp', '0.0.0.0:' + port,       '0.0.0.0:*',          {v:'LISTEN',c:'ok'},       '1234/pcmdstreaming'],
+  ]); blank();
+}
+
+// boot() function follows below
+function insertCmd(c){inp.value=c;inp.focus();}
+
+function boot(){
+  blank();
+  emit('╔══════════════════════════════════════════════════════════════════╗','hdr');
+  emit('║   NOKIA · Cloud Mobility Manager (CMM)  Release CMM24.3          ║','hdr');
+  emit('║   AMF CLI Simulator v4  ·  Integration MOP + Troubleshooting Guide║','hdr');
+  emit('║   Sources: AMF User Guide · IP Connectivity · Integrating AMF    ║','hdr');
+  emit('║            Installation Guide · MD-CLI Guide · Integration MOP   ║','hdr');
+  emit('╚══════════════════════════════════════════════════════════════════╝','hdr');
+  blank();
+  emit('  Node: necc0 (Active)  |  NECC-1: Standby  |  User: cmm [sysadmin]','dim');
+  emit('  PLMN: 302-720 (Bell Mobility)  |  AMF GUAMI: 302720.01.01.01','dim');
+  blank();
+  emit('  <span style="color:var(--cyan)">help</span> — full command list  |  <span style="color:var(--cyan)">tutorial</span> — guided walkthrough  |  <span style="color:var(--cyan)">md-cli</span> — MD-CLI mode  |  <span style="color:var(--cyan)">mop</span> — Integration MOP','info');
+  blank();
+  emit('  New in v4: Troubleshooting Guide · cmm_monitor · fns_monitor · alarm definition/cancel','ok');
+  emit('             subscriber delete · nbiTraceroute · amfPcmdConfig · pcmdStreaming · traceDataStatus','ok');
+  emit('             tcpdump · tail/grep logs · get_debug_info · cmmDBdump · ts quick ref · ts logs','ok');
+  emit('  New in v3: Integration MOP (8 phases) · amfNrfStatus · amfNfProfile · amfNfDiscovery','ok');
+  emit('             amfIntfSummary · amfLinkQueryDetail · emsTrapNotification · syslogServer','ok');
+  emit('             backup/restore · backupSchedule · ntpStatus · perfMeasJob · scpConfig','ok');
+  emit('             amfTai · sbiTimersProfile · amfCapacity · utility nslookup/http2-ping','ok');
+  emit('             MD-CLI mode · amfInstance · amfServiceIp · dcaeServer · fluentd · SNSSAI lists','ok');
+  blank();
+}
+
+boot();
+inp.focus();
+</script>
+</body>
+</html>
